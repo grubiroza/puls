@@ -899,8 +899,23 @@ function render() {
 // OCENA DANA — ista racunica kao na racunaru (sources._level_at + compute): nivo = medijana 7 prethodnih CISTIH dana x faktor dana u
 // nedelji (8 nedelja, 0,85–1,15); sumnjivi direktni = projekcija direktnih − nivo direktnih; ocena = (projekcija − sumnjivi) / nivo − 1
 const VD_THR = 0.08, BADF = /bot|outage|partial/;
+// cisti dani za nivo: bez oznake bot/ispad/nepotpun (oznake stizu uvozom sa racunara); dan koji telefon sam skuplja oznaku nema ->
+// bot dan = direktni iznad uobicajenog (medijana 7 prethodnih cistih dana) za >= 10 % poseta, isto pravilo kao na racunaru
+function cleanDays() {
+  const ok = [];
+  for (const d of Object.keys(H).filter(d => d < S.today && !H[d].x && H[d].c != null).sort()) {
+    const e = H[d];
+    if (BADF.test(e.f || '')) continue;
+    if (e.src !== 'pc' && e.g && e.g.direct != null) {
+      const u = median(ok.slice(-7).map(x => H[x].g ? H[x].g.direct : null));
+      if (u != null && e.g.direct - u >= 0.10 * e.c) continue;
+    }
+    ok.push(d);
+  }
+  return ok;
+}
 function levelOf(valOf) {
-  const ds = Object.keys(H).filter(d => d < S.today && !H[d].x && !BADF.test(H[d].f || '') && valOf(H[d]) != null).sort();
+  const ds = cleanDays().filter(d => valOf(H[d]) != null);
   if (ds.length < 4) return null;
   const med7 = i => median(ds.slice(Math.max(0, i - 7), i).map(d => valOf(H[d])));
   const wd = new Date(S.today + 'T12:00:00').getDay(), fs = [];
