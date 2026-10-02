@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0e1014">
+<title>Puls</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#0e1014;--card:#161a21;--card-2:#1c2129;--line:rgba(255,255,255,.07);--text:#e8e6df;--text-2:rgba(232,230,223,.66);--text-3:rgba(232,230,223,.55);
+  --gold:#d4a542;--green:#4cc38a;--red:#e5484d;--amber:#f5b53f;--grid:rgba(255,255,255,.07);
+  --s-google:#b98a2b;--s-bing:#3987e5;--s-duckduckgo:#d95926;--s-yahoo:#199e70;--s-direct:#9085e9;--s-x:#d55181;--s-trade:#2a9db8;--s-tail:#6b7280;
+  --up-ink:#5fd39c;--down-ink:#ff7a7d;--up-soft:rgba(76,195,138,.13);--down-soft:rgba(229,72,77,.15);
+  --ff:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#f4f2ec;--card:#fff;--card-2:#f7f5ef;--line:rgba(0,0,0,.08);--text:#1a1a1a;--text-2:rgba(26,26,26,.72);--text-3:rgba(26,26,26,.62);
+  --gold:#b8891f;--green:#1f9d63;--red:#d4383d;--amber:#c98a12;--grid:rgba(0,0,0,.07);
+  --s-google:#b8891f;--s-bing:#2a78d6;--s-duckduckgo:#eb6834;--s-yahoo:#00a383;--s-direct:#4a3aa7;--s-x:#d55181;--s-trade:#0093b8;--s-tail:#9aa0ab;
+  --up-ink:#0f7a49;--down-ink:#c02a30;--up-soft:rgba(31,157,99,.12);--down-soft:rgba(212,56,61,.11);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 var(--ff);padding:0 12px calc(24px + env(safe-area-inset-bottom))}
+.wrap{max-width:560px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;align-items:center;gap:8px;padding:14px 2px 4px}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px}
+.logo i{width:10px;height:10px;border-radius:50%;background:var(--gold);display:inline-block}
+.hmeta{color:var(--text-2);font-size:12px;padding:0 2px 10px}
+.hsp{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:13px}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.pill.off i{background:var(--text-3)}
+button{font:inherit;color:inherit}
+.ib{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;cursor:pointer;padding:0}
+.ib svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib.spin svg{animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.ct{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+.ct h2{margin:0;font-size:13px;font-weight:600}
+.ct span{color:var(--text-3);font-size:11.5px;text-align:right}
+.big{font-size:40px;font-weight:700;line-height:1.05;letter-spacing:-.5px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sub{color:var(--text-2);font-size:12.5px;margin-top:6px}
+.sub b{color:var(--text);font-weight:600}
+.dl{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+.dl.up{background:var(--up-soft);color:var(--up-ink)}
+.dl.down{background:var(--down-soft);color:var(--down-ink)}
+.dl.flat{background:var(--card-2);color:var(--text-2)}
+.dl.none{color:var(--text-3);font-weight:400;padding:2px 0}
+svg.ch{display:block;width:100%;height:auto;margin-top:10px}
+svg.ch text{fill:var(--text-3);font:10px var(--ff)}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{font-weight:500;color:var(--text-3);font-size:11px;text-align:right;padding:0 0 6px}
+th:first-child{text-align:left}
+td{padding:7px 0;border-top:1px solid var(--line);text-align:right;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+td:first-child{text-align:left}
+tr.lead td{font-weight:650}
+tr.child td:first-child{padding-left:14px;color:var(--text-2)}
+tr.total td{border-top:2px solid var(--line);font-weight:650}
+td.mt{color:var(--text-2)}
+.sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
+col.c-n{width:auto}col.c-a{width:54px}col.c-b{width:38px}col.c-c{width:44px}col.c-d{width:56px}
+.refs{list-style:none;margin:0;padding:0}
+.refs li{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.refs li:first-child{border-top:0}
+.refs .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.refs .v{font-weight:650}
+.refs .t{color:var(--text-3);font-size:12px;width:58px;text-align:right}
+.legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--text-2);font-size:11.5px;margin-top:6px}
+.msg{border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px;background:var(--down-soft);color:var(--down-ink)}
+.msg.warn{background:rgba(245,181,63,.14);color:var(--amber)}
+.foot{color:var(--text-3);font-size:11.5px;text-align:center;margin-top:4px}
+.foot a{color:inherit}
+#setup .card{margin-top:28px}
+label{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}
+input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--text)}
+.btn{margin-top:14px;width:100%;padding:11px;border-radius:10px;border:0;background:var(--gold);color:#1a1a1a;font-weight:650;cursor:pointer}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text-2);font-weight:500}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <span class="logo"><i></i>Puls</span>
+  <span class="hsp"></span>
+  <span class="pill off" id="onPill" title="Aktivni posetioci u poslednjih 60 min"><i></i><b class="num" id="onN">—</b> online</span>
+  <button class="ib" id="btnRef" type="button" aria-label="Osveži"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button>
+  <button class="ib" id="btnSet" type="button" aria-label="Podešavanja"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg></button>
+</header>
+<div class="hmeta" id="hDate"></div>
+
+<div id="msg" class="msg" hidden></div>
+
+<main id="app" hidden>
+  <section class="card">
+    <div class="ct"><h2>Posete danas</h2><span id="cMeta"></span></div>
+    <div class="row"><div class="big num" id="cV">—</div><span id="cDl"></span></div>
+    <div class="sub" id="cSub"></div>
+    <div class="sub" id="cQ"></div>
+    <div id="chDay"></div>
+    <div class="legend" id="dayLeg" hidden><span><span class="sw" style="background:var(--gold)"></span>danas</span><span><span class="sw" style="background:var(--s-tail)"></span>juče</span></div>
+  </section>
+
+  <section class="card">
+    <div class="ct"><h2>Online sada</h2><span>aktivni u 60 min</span></div>
+    <div class="row"><div class="big num" id="oV">—</div></div>
+    <div class="sub" id="oSub"></div>
+    <div id="chOn"></div>
+  </section>
+
+  <section class="card">
+    <div class="ct"><h2>Izvori</h2><span id="sMeta"></span></div>
+    <table>
+      <colgroup><col class="c-n"><col class="c-a"><col class="c-b"><col class="c-c"><col class="c-d"></colgroup>
+      <thead><tr><th>izvor</th><th>do sada</th><th>5 min</th><th>30 min</th><th>vs juče</th></tr></thead>
+      <tbody id="sBody"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <div class="ct"><h2>Dolasci po 10 min</h2><span>poslednja 2 h</span></div>
+    <div id="chBars"></div>
+    <div class="legend"><span><span class="sw" style="background:var(--s-google)"></span>pretraživači</span><span><span class="sw" style="background:var(--s-trade)"></span>partneri</span><span><span class="sw" style="background:var(--s-direct)"></span>direktno</span></div>
+  </section>
+
+  <section class="card">
+    <div class="ct"><h2>Referenti</h2><span>dolasci 30 min · danas</span></div>
+    <ul class="refs" id="rList"></ul>
+  </section>
+
+  <div class="foot" id="foot"></div>
+</main>
+
+<section id="setup" hidden>
+  <div class="card">
+    <div class="ct"><h2>Podešavanje</h2><span>jednom po telefonu</span></div>
+    <div class="sub">Otvori link za podešavanje (QR sa računara) ili unesi adresu i ključ ručno. Ostaju samo u ovom browseru.</div>
+    <label for="inU">Adresa izvora</label><input id="inU" type="url" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label for="inT">Ključ</label><input id="inT" type="password" autocomplete="off">
+    <button class="btn" id="btnSave" type="button">Sačuvaj</button>
+    <button class="btn ghost" id="btnForget" type="button" hidden>Zaboravi podešavanje na ovom uređaju</button>
+    <button class="btn ghost" id="btnTheme" type="button">Svetla / tamna tema</button>
+    <button class="btn ghost" id="btnBack" type="button" hidden>Nazad</button>
+  </div>
+</section>
+</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme' };
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+             del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+const N = v => v == null || isNaN(v) ? '—' : Math.round(v).toLocaleString('de-DE');
+const P = (v, d = 1) => v == null || isNaN(v) ? '—' : v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }).replace('-', '−') + ' %';
+const hms = t => t ? new Date(t * 1000).toTimeString().slice(0, 8) : '—';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = x => parseInt(String(x == null ? 0 : x).replace(/,/g, '').trim() || '0', 10) || 0;
+
+// ---------------------------------------------------------------- podesavanje
+let CFG = ls.get(LS.cfg);
+(function fromHash() {
+  const m = location.hash.match(/[#&]s=([^&]+)/);
+  if (!m) return;
+  try {
+    const b = m[1].replace(/-/g, '+').replace(/_/g, '/');
+    const c = JSON.parse(decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))));
+    if (c && c.u && c.t) { CFG = c; ls.set(LS.cfg, c); }
+  } catch (e) {}
+  history.replaceState(null, '', location.pathname + location.search);
+})();
+function applyTheme() {
+  const t = ls.get(LS.theme) || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name=theme-color]').content = t === 'light' ? '#f4f2ec' : '#0e1014';
+}
+applyTheme();
+
+// ---------------------------------------------------------------- grupe referera (redosled = prioritet, prvi pogodak)
+const RULES_A = [['direct', /^unknown$/], ['bots', 'isbot'], ['bots', /^bot-/],
+  ['google', /^google\.|^(com|co)\.[a-z]{2}$|^googleapis|^googleusercontent/], ['bing', /^bing\.com$|^msn\.com$|^cn\.bing/],
+  ['duckduckgo', /^duckduckgo\.com$/], ['yahoo', /^yahoo\./],
+  ['search_other', /^(yandex|ya\.ru|qwant|ecosia|startpage|startpagina|mojeek|coccoc|alohafind|privacywall|tineye|inbrowserapp|t-online|brave|presearch|seznam|naver|daum|baidu|ask\.com|aol\.|search\.)/],
+  ['social', /^(t\.co$|twitter|x\.com|reddit|pikabu|facebook|fb\.|pinterest|tumblr|vk\.|instagram|telegram|discord|threads\.net)/]];
+const RULES_Z = [['trade', 'ispublic'], ['other', /./]];
+let RULES = [], EXTRA = [];     // EXTRA = sopstvene grupe iz podesavanja: [regex, kljuc, naziv]
+function buildRules() {
+  EXTRA = ((CFG && CFG.x) || []).map(x => ({ re: new RegExp(x[0]), key: x[1], label: x[2] }));
+  RULES = RULES_A.concat(EXTRA.map(x => [x.key, x.re]), RULES_Z);
+}
+function groupOf(name, isbot, ispub) {
+  const low = String(name).toLowerCase();
+  for (const [g, r] of RULES) {
+    if (r === 'isbot') { if (isbot) return g; } else if (r === 'ispublic') { if (ispub) return g; } else if (r.test(low)) return g;
+  }
+  return 'other';
+}
+const SEARCH = ['google', 'bing', 'duckduckgo', 'yahoo', 'search_other', 'other', 'social'];
+function tableRows() {
+  const part = ['trade'].concat(EXTRA.map(x => x.key));
+  return { part, rows: [
+    ['search', 'Pretraživači', 'lead', SEARCH, 'google'], ['google', 'Google', 'child', ['google'], 'google'], ['bing', 'Bing', 'child', ['bing'], 'bing'],
+    ['duckduckgo', 'DuckDuckGo', 'child', ['duckduckgo'], 'duckduckgo'], ['yahoo', 'Yahoo', 'child', ['yahoo'], 'yahoo'],
+    ['rest', 'Ostali', 'child', ['search_other', 'other', 'social'], 'tail'],
+    ['part', 'Partneri', 'lead', part, 'trade'], ['trade', 'Trade', 'child', ['trade'], 'trade']]
+    .concat(EXTRA.map(x => [x.key, x.label, 'child', [x.key], 'x']))
+    .concat([['direct', 'Direktno', 'lead', ['direct'], 'direct'], ['bots', 'Botovi', 'lead', ['bots'], 'tail']]) };
+}
+
+// ---------------------------------------------------------------- red -> objekat
+function parseLine(line) {
+  const i = line.indexOf(' ');
+  if (i < 19) return null;
+  const ts = line.slice(0, i);
+  let s;
+  try { s = JSON.parse(line.slice(i + 1)).stat; } catch (e) { return null; }
+  if (!s || !s.refs) return null;
+  const names = Object.keys(s.refs);
+  if (!names.length) return null;
+  const t0 = Date.parse(ts);
+  let lag = s.generated_at ? (Date.parse(s.generated_at) - t0) / 1000 : 0;
+  if (!(lag >= 0 && lag <= 600)) lag = 0;
+  const g = {}, refs = {};
+  let nw = null, bo = null, su = 0;
+  for (const name of names) {
+    if (name === 'GOOGLE') continue;
+    const v = s.refs[name], u = num(v.uniq_in), bot = v.isbot === 'Y';
+    const grp = groupOf(name, bot, v.ispublic === 'Y');
+    g[grp] = (g[grp] || 0) + u; refs[name] = u; su += u;
+    if (!bot) {
+      if (v.new_uniq_in != null) nw = (nw || 0) + num(v.new_uniq_in);
+      if (v.bounce_uniq_in != null) bo = (bo || 0) + num(v.bounce_uniq_in);
+    }
+  }
+  const sm = s.sum || {}, u = sm.uniq_in != null ? num(sm.uniq_in) : su;
+  // uniq_visitors (posete bez duplikata) i onlines su brojaci u memoriji app servera: restart servera ih vraca na nulu usred dana
+  // (2.10.2026 14:37 i 14:47), dok zbir po refereru nastavlja. Zdrav odnos uv/u je ~0,90 -> van 0,75-1,02 broj se ne koristi.
+  const uvRaw = sm.uniq_visitors != null ? num(sm.uniq_visitors) : null, uvOk = uvRaw != null && u > 0 && uvRaw / u >= 0.75 && uvRaw / u <= 1.02;
+  return { ts, date: ts.slice(0, 10), at: t0 / 1000 + lag, tsm: (+ts.slice(11, 13)) * 60 + (+ts.slice(14, 16)), on: s.onlines == null ? null : num(s.onlines),
+           u, uv: uvOk ? uvRaw : null, rst: uvRaw != null && !uvOk, nw, bo, g, refs };
+}
+
+async function fetchRows(params, onRow) {
+  const q = new URLSearchParams(Object.assign({ access: CFG.t }, params));
+  const r = await fetch(CFG.u + (CFG.u.includes('?') ? '&' : '?') + q, { cache: 'no-store' });
+  if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+  let n = 0;
+  const take = line => { if (line.trim()) { const row = parseLine(line); if (row) { onRow(row); n++; } } };
+  if (r.body && r.body.getReader) {         // strimovano: ceo dan je ~30 MB teksta, u memoriji uvek samo jedan red
+    const rd = r.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done, value } = await rd.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let k;
+      while ((k = buf.indexOf('\n')) >= 0) { take(buf.slice(0, k)); buf = buf.slice(k + 1); }
+    }
+    take(buf + dec.decode());
+  } else (await r.text()).split('\n').forEach(take);
+  return n;
+}
+
+// ---------------------------------------------------------------- stanje
+const KEEP_MIN = 130, REFS_MIN = 40;
+const S = { today: null, rows: [], day: null, yday: null, last: null, err: null, busy: false, next: 0 };
+// dan = {date, last, s: {bin: [tsm, uv, u, on, nw, bo, g]}} — bin = 10 min, vrednost = poslednji red u binu
+const newDay = date => ({ date, last: null, s: {}, lastU: 0 });
+const prevDate = d => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - 1); return x.toISOString().slice(0, 10); };
+// posete u binu: tacan broj kad ga red nosi, inace zbir po refereru x poslednji zdrav odnos tog dana (procena)
+const kOf = day => (day && day.k) || (S.yday && S.yday.k) || 0.9;
+const cOf = day => x => x[1] != null ? x[1] : (x[2] ? x[2] * kOf(day) : null);
+const finalU = day => { if (!day) return null; const k = Object.keys(day.s).map(Number); return k.length ? day.s[Math.max(...k)][2] : null; };
+
+// red novog dana koji jos nosi jucerasnji kumulativ: u prva 3 sata zbir veci od pola jucerasnjeg dana nije moguc
+const carried = (row, yU) => !!(row && yU && row.tsm < 180 && row.u > 0.5 * yU);
+function addToDay(day, row, yU) {
+  if (row.date !== day.date || (day.last && row.ts <= day.last)) return false;
+  if (carried(row, yU)) return false;
+  if (day.lastU > 200 && row.u < 0.5 * day.lastU) { day.s = {}; if (day === S.day) S.rows = []; }   // reset brojaca usred datuma
+  day.s[Math.floor(row.tsm / 10)] = [row.tsm, row.uv, row.u, row.on, row.nw, row.bo, row.g];
+  day.last = row.ts; day.lastU = row.u;
+  if (row.uv != null && row.u) day.k = row.uv / row.u;      // poslednji zdrav odnos posete / zbir po refereru
+  return true;
+}
+function valAt(day, minute, pick) {
+  if (!day) return null;
+  const pts = Object.values(day.s).filter(x => pick(x) != null).sort((a, b) => a[0] - b[0]);
+  let a = null, b = null;
+  for (const p of pts) { if (p[0] <= minute) a = p; else { b = p; break; } }
+  if (a && b && b[0] - a[0] <= 40) return pick(a) + (pick(b) - pick(a)) * (minute - a[0]) / (b[0] - a[0]);
+  if (a && minute - a[0] <= 15) return pick(a);
+  return null;
+}
+function pushRow(row) {
+  if (!addToDay(S.day, row, finalU(S.yday))) return;
+  S.rows.push(row); S.last = row;
+  const cut = row.at - KEEP_MIN * 60, rcut = row.at - REFS_MIN * 60;
+  while (S.rows.length && S.rows[0].at < cut) S.rows.shift();
+  for (const x of S.rows) { if (x.at >= rcut) break; x.refs = null; }
+}
+function saveDays() {
+  if (S.day) ls.set(LS.day(S.day.date), S.day);
+  try { Object.keys(localStorage).filter(k => k.startsWith('puls.m.day.') && k.slice(11) < prevDate(prevDate(S.today))).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+}
+
+// ---------------------------------------------------------------- ucitavanje
+async function load(first) {
+  if (S.busy || !CFG) return;
+  S.busy = true; $('#btnRef').classList.add('spin');
+  try {
+    if (first || !S.today || S.hold) {
+      let head = null;
+      await fetchRows({}, r => { head = r; });               // poslednji red: koji je klon dan + brojevi odmah
+      if (!head) throw new Error('izvor nema nijedan red');
+      // posle ponoci klon neko vreme nema red novog dana: red sa novim datumom koji jos nosi jucerasnji kumulativ = i dalje juce
+      S.hold = carried(head, finalU(ls.get(LS.day(prevDate(head.date)))));
+      const date = S.hold ? prevDate(head.date) : head.date;
+      if (S.today !== date) {
+        S.today = date; S.rows = []; S.last = null;
+        S.day = ls.get(LS.day(date)) || newDay(date);
+        S.yday = ls.get(LS.day(prevDate(date)));
+      }
+      if (S.hold) { S.last = head; S.err = null; render(); return; }
+      if (!S.last) { S.last = head; render(); }
+    }
+    // danas: od poslednjeg sacuvanog reda, ali najmanje poslednjih KEEP_MIN minuta (dolasci 5/30 min traze redove po minutu)
+    let other = false;
+    const take = r => { if (r.date !== S.today) other = true; else pushRow(r); };
+    const mem = S.rows.length ? S.rows[S.rows.length - 1].ts : null;
+    if (mem) await fetchRows({ since: mem }, take);
+    else if (S.day.last) {
+      const saved = S.day.last, want = new Date(Date.now() - KEEP_MIN * 60000);
+      const overlap = Date.parse(saved) > want.getTime();
+      // prozor se preklapa sa sacuvanim binovima -> redovi ih prepisuju istim vrednostima
+      if (overlap) { S.day.last = null; S.day.lastU = 0; }
+      try { await fetchRows({ since: overlap ? isoLike(saved, want) : saved }, take); }
+      finally { if (!S.day.last) S.day.last = saved; }
+    } else await fetchRows({ date: S.today }, take);
+    if (S.rows.length) S.last = S.rows[S.rows.length - 1];
+    if (other) { S.busy = false; S.today = null; return load(true); }   // stigli redovi drugog datuma = ponoc
+    S.err = null;
+    saveDays(); render();
+    // juce (jednom): za "juce u isto vreme" i krivu dana
+    const yd = prevDate(S.today);
+    if (!S.yday || !S.yday.done) {
+      const y = newDay(yd);
+      await fetchRows({ date: yd }, r => addToDay(y, r, null));
+      y.done = true; S.yday = y; ls.set(LS.day(yd), y); render();
+    }
+  } catch (e) {
+    S.err = e; render();
+  } finally {
+    S.busy = false; $('#btnRef').classList.remove('spin');
+    S.next = (Math.floor(Date.now() / 60000) + 1) * 60000 + 12000;   // red stize u :00-:05 svake minute
+  }
+}
+// 'since' u istom obliku kao ts reda (sa ofsetom klon servera), za trenutak `d`
+function isoLike(ts, d) {
+  const off = ts.slice(19) || 'Z', m = off === 'Z' ? 0 : (off[0] === '-' ? -1 : 1) * ((+off.slice(1, 3)) * 60 + (+off.slice(4, 6)));
+  return new Date(d.getTime() + m * 60000).toISOString().slice(0, 19) + off;
+}
+
+// ---------------------------------------------------------------- racun
+function snapAt(t) { let best = null; for (const x of S.rows) { if (x.at <= t) best = x; else break; } return best; }
+function arrivals(keys, minutes) {
+  const ref = S.rows[S.rows.length - 1]; if (!ref) return null;
+  const secs = minutes * 60, a = snapAt(ref.at - secs);
+  if (!a || a === ref) return null;
+  const age = ref.at - a.at;
+  if (age < secs * .6 || age > secs * 1.6) return null;
+  return Math.max(0, keys.reduce((s, k) => s + (ref.g[k] || 0) - (a.g[k] || 0), 0)) * secs / age;
+}
+const cum = (g, keys) => keys.reduce((s, k) => s + ((g && g[k]) || 0), 0);
+function pill(dev, thr = 0.10) {
+  if (dev == null || !isFinite(dev)) return '<span class="dl none">—</span>';
+  const cls = dev >= thr ? 'up' : dev <= -thr ? 'down' : 'flat';
+  return `<span class="dl ${cls}">${dev > 0 ? '+' : ''}${P(dev * 100, Math.abs(dev) < .1 ? 1 : 0)}</span>`;
+}
+
+// ---------------------------------------------------------------- crtanje
+function svgEl(w, h) { return `<svg class="ch" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img">`; }
+function lineChart(el, series, o) {
+  const W = 320, H = o.h || 96, pl = 2, pr = 2, pt = 6, pb = o.xl ? 14 : 4;
+  const all = series.flatMap(s => s.pts);
+  if (all.length < 2) { el.innerHTML = ''; return false; }
+  const x0 = o.x0, x1 = o.x1, y1 = Math.max(...all.map(p => p[1])) * 1.05 || 1, y0 = o.y0 != null ? o.y0 : Math.min(...all.map(p => p[1]));
+  const X = v => pl + (v - x0) / (x1 - x0 || 1) * (W - pl - pr), Y = v => H - pb - (v - y0) / (y1 - y0 || 1) * (H - pt - pb);
+  let out = svgEl(W, H);
+  for (const t of (o.grid || [])) out += `<line x1="${X(t)}" x2="${X(t)}" y1="${pt}" y2="${H - pb}" stroke="var(--grid)"/>` + (o.xl ? `<text x="${X(t)}" y="${H - 3}" text-anchor="middle">${o.xl(t)}</text>` : '');
+  for (const s of series) {
+    if (s.pts.length < 2) continue;
+    const d = s.pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join('');
+    if (s.fill) out += `<path d="${d}L${X(s.pts[s.pts.length - 1][0]).toFixed(1)} ${H - pb}L${X(s.pts[0][0]).toFixed(1)} ${H - pb}Z" fill="${s.color}" opacity=".14"/>`;
+    out += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w || 2}" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+  }
+  el.innerHTML = out + '</svg>';
+  return true;
+}
+function barsChart(el, bins) {
+  const W = 320, H = 92, pb = 14, pt = 4, n = bins.length, step = W / n, bw = step * .68;
+  const mx = Math.max(1, ...bins.map(b => b.v ? b.v.reduce((a, c) => a + c, 0) : 0));
+  const col = ['var(--s-google)', 'var(--s-trade)', 'var(--s-direct)'];
+  let out = svgEl(W, H);
+  bins.forEach((b, i) => {
+    if (!b.v) return;
+    let y = H - pb;
+    b.v.forEach((v, j) => { const h = v / mx * (H - pb - pt); y -= h; out += `<rect x="${(i * step + (step - bw) / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" fill="${col[j]}"/>`; });
+    if (i % 3 === 2 || i === n - 1) out += `<text x="${(i * step + step / 2).toFixed(1)}" y="${H - 3}" text-anchor="middle">${b.l}</text>`;
+  });
+  el.innerHTML = out + '</svg>';
+}
+
+function render() {
+  const cfg = !!CFG;
+  $('#setup').hidden = cfg && !S.showSetup; $('#app').hidden = !cfg || S.showSetup || !S.last;
+  $('#btnForget').hidden = !cfg; $('#btnBack').hidden = !cfg;
+  const msg = $('#msg');
+  if (S.err && cfg) {
+    msg.hidden = false; msg.className = 'msg';
+    msg.textContent = S.err.status === 403 ? 'Ključ nije prihvaćen (403). Otvori podešavanje i unesi ga ponovo.' : `Izvor ne odgovara (${S.err.message || S.err}). Pokušaću ponovo za minut.`;
+  } else msg.hidden = true;
+  let L = S.last;
+  if (!L || !cfg) return;
+  const age = Date.now() / 1000 - L.at;
+  if (!S.err && age > 300) { msg.hidden = false; msg.className = 'msg warn'; msg.textContent = `Poslednji red je star ${Math.round(age / 60)} min — izvor trenutno ne upisuje nove redove.`; }
+  else if (!S.err && S.hold) { msg.hidden = false; msg.className = 'msg warn'; msg.textContent = 'Izvor još nije započeo novi dan (obično do oko 00:40) — prikazan je jučerašnji dan.'; }
+  if (S.hold) L = Object.assign({}, L, { tsm: 1439 });      // poredjenja sa prethodnim danom = kraj dana
+  const d = new Date(S.today + 'T12:00:00');
+  $('#hDate').textContent = d.toLocaleDateString('sr-Latn', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hms(L.at).slice(0, 5);
+  // online: medijana poslednja 3 reda (broj skace +-1 % po minutu)
+  const ons = S.rows.slice(-3).map(x => x.on).filter(x => x != null).sort((a, b) => a - b);
+  const on = ons.length ? ons[ons.length >> 1] : L.on;
+  $('#onN').textContent = N(on); $('#oV').textContent = N(on); $('#onPill').classList.toggle('off', age > 300 || on == null);
+  // posete
+  const Y = S.yday, yAt = valAt(Y, L.tsm, cOf(Y)), yEnd = Y ? (k => k.length ? cOf(Y)(Y.s[Math.max(...k)]) : null)(Object.keys(Y.s).map(Number)) : null;
+  const cNow = L.uv != null ? L.uv : L.u * kOf(S.day), cEst = L.uv == null;
+  $('#cV').textContent = (cEst ? '≈ ' : '') + N(cNow);
+  $('#cMeta').textContent = 'red ' + hms(L.at);
+  $('#cDl').innerHTML = yAt ? pill(cNow / yAt - 1, 0.05) : '';
+  $('#cSub').innerHTML = Y && Y.done ? (yAt ? `juče u ovo vreme <b class="num">${N(yAt)}</b>` : 'juče u ovo vreme: nema reda') + (yEnd ? ` · juče ukupno <b class="num">${N(yEnd)}</b>` : '') : (Y ? '' : 'juče: učitavam…');
+  if (Y && Y.done && !Object.keys(Y.s).length) $('#cSub').textContent = 'juče: izvor nema podatke za taj dan';
+  const nb = L.u - (L.g.bots || 0);
+  $('#cQ').innerHTML = (L.nw != null && nb > 0 ? `novi <b class="num">${P(100 * L.nw / nb, 0)}</b> · bounce <b class="num">${P(100 * L.bo / nb, 0)}</b>` : '') +
+    (cEst ? '<br>≈ = procena iz zbira po izvoru: server je danas restartovan, pa izvor ne daje tačan broj posetilaca bez duplikata' : '');
+  const pts = day => day ? Object.values(day.s).map(x => [x[0], cOf(day)(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
+  const has = lineChart($('#chDay'), [{ pts: pts(Y), color: 'var(--s-tail)', w: 1.5 }, { pts: pts(S.day), color: 'var(--gold)', w: 2.2, fill: true }],
+                        { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110 });
+  $('#dayLeg').hidden = !has;
+  // histats skala: dolasci u prozoru x k po izvoru (iste konstante kao na racunaru)
+  const hk = CFG.hk || {}, hw = CFG.hw || 12, allKeys = SEARCH.concat(tableRows().part, ['direct', 'bots']);
+  let hist = hk._total ? 0 : null;
+  if (hist != null) for (const k of allKeys) { const v = arrivals([k], hw); if (v == null) { hist = null; break; } hist += v * (hk[k] || hk._total); }
+  $('#oSub').innerHTML = (hist != null ? `≈ histats „Users online" <b class="num">${N(hist)}</b>` : '') +
+    (L.rst ? `${hist != null ? '<br>' : ''}server je restartovan — ovaj broj se puni oko sat vremena` : '');
+  const t1 = L.at, onPts = S.rows.filter(x => x.on != null && x.at >= t1 - 7200).map(x => [x.at, x.on]);
+  const mn = onPts.length ? Math.min(...onPts.map(p => p[1])) : 0, mxo = onPts.length ? Math.max(...onPts.map(p => p[1])) : 0;
+  lineChart($('#chOn'), [{ pts: onPts, color: 'var(--green)', w: 2, fill: true }], { x0: t1 - 7200, x1: t1, y0: Math.max(0, mn - (mxo - mn) - 5), h: 64 });
+  // izvori
+  const T = tableRows();
+  $('#sMeta').textContent = 'novi jedinstveni po refereru';
+  const tr = (cls, sw, label, c, a5, a30, dev) => `<tr class="${cls}"><td>${sw ? `<span class="sw" style="background:var(--s-${sw})"></span>` : ''}${esc(label)}</td><td class="num">${N(c)}</td><td class="num">${a5 == null ? '·' : N(a5)}</td><td class="num mt">${a30 == null ? '·' : N(a30)}</td><td>${dev}</td></tr>`;
+  const yG = keys => { const v = valAt(Y, L.tsm, x => x[6] ? cum(x[6], keys) : null); return v; };
+  let html = '';
+  for (const [key, label, cls, keys, sw] of T.rows) {
+    const c = cum(L.g, keys), y = yG(keys);
+    html += tr(cls, sw, label, c, arrivals(keys, 5), arrivals(keys, 30), pill(y ? c / y - 1 : null));
+  }
+  $('#sBody').innerHTML = html + tr('total', '', 'ukupno', L.u, arrivals(allKeys, 5), arrivals(allKeys, 30), '');
+  // stubici 12 x 10 min: pretrazivaci / partneri / direktno
+  const bins = [];
+  for (let j = 0; j < 12; j++) {
+    const e = L.at - (11 - j) * 600, a = snapAt(e - 600), b = snapAt(e);
+    const lbl = new Date(e * 1000).toTimeString().slice(0, 5);
+    if (a && b && b.at > a.at && (e - 600) - a.at < 300 && e - b.at < 300) {
+      const f = 600 / (b.at - a.at);
+      bins.push({ l: lbl, v: [SEARCH, T.part, ['direct']].map(keys => Math.max(0, cum(b.g, keys) - cum(a.g, keys)) * f) });
+    } else bins.push({ l: lbl, v: null });
+  }
+  barsChart($('#chBars'), bins);
+  // referenti: dolasci 30 min po pojedinacnom refereru
+  const rNow = L.refs ? L : S.rows.slice().reverse().find(x => x.refs), rA = rNow && S.rows.find(x => x.refs && x.at >= rNow.at - 1830);
+  let rl = '';
+  if (rNow && rA && rA !== rNow && rNow.at - rA.at >= 600) {
+    const f = 1800 / (rNow.at - rA.at);
+    rl = Object.keys(rNow.refs).filter(n => n !== 'unknown' && !n.startsWith('bot-')).map(n => [n, (rNow.refs[n] - (rA.refs[n] || 0)) * f, rNow.refs[n]])
+      .filter(x => x[1] >= 1).sort((a, b) => b[1] - a[1]).slice(0, 12)
+      .map(x => `<li><span class="nm">${esc(x[0])}</span><span class="v num">${N(x[1])}</span><span class="t num">${N(x[2])}</span></li>`).join('');
+  }
+  $('#rList').innerHTML = rl || '<li><span class="nm" style="color:var(--text-3)">skuplja se (potrebno ~10 min redova)</span></li>';
+  $('#foot').textContent = `osvežava se svakog minuta dok je strana otvorena · poslednji red ${hms(L.at)}`;
+}
+
+// ---------------------------------------------------------------- dogadjaji
+$('#btnRef').addEventListener('click', () => load(!S.today));
+$('#btnSet').addEventListener('click', () => { S.showSetup = !S.showSetup; if (CFG) { $('#inU').value = CFG.u; $('#inT').value = ''; } render(); });
+$('#btnBack').addEventListener('click', () => { S.showSetup = false; render(); });
+$('#btnTheme').addEventListener('click', () => { ls.set(LS.theme, document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); applyTheme(); });
+$('#btnSave').addEventListener('click', () => {
+  const u = $('#inU').value.trim(), t = $('#inT').value.trim() || (CFG && CFG.t);
+  if (!/^https:\/\//.test(u) || !t) { alert('Unesi adresu (https://…) i ključ.'); return; }
+  CFG = Object.assign({}, CFG || {}, { u, t }); ls.set(LS.cfg, CFG);
+  S.showSetup = false; S.today = null; S.err = null; buildRules(); render(); load(true);
+});
+$('#btnForget').addEventListener('click', () => {
+  if (!confirm('Obrisati adresu, ključ i sačuvane dane sa ovog uređaja?')) return;
+  try { Object.keys(localStorage).filter(k => k.startsWith('puls.m.') && k !== LS.theme).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  CFG = null; S.today = null; S.last = null; S.rows = []; S.showSetup = false; render();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CFG && Date.now() >= S.next - 30000) load(false); });
+setInterval(() => { if (CFG && !document.hidden && Date.now() >= S.next) load(false); }, 5000);
+setInterval(() => { if (S.last) render(); }, 30000);
+buildRules(); render();
+if (CFG) load(true);
+</script>
+</body>
+</html>
