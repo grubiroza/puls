@@ -77,7 +77,7 @@ col.c-n{width:auto}col.c-a{width:54px}col.c-b{width:38px}col.c-c{width:44px}col.
 .msg{border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px;background:var(--down-soft);color:var(--down-ink)}
 .msg.warn{background:rgba(245,181,63,.14);color:var(--amber)}
 .foot{color:var(--text-3);font-size:11.5px;text-align:center;margin-top:4px}
-.foot a{color:inherit}
+.lnk{background:none;border:0;color:var(--text-2);text-decoration:underline;padding:10px;cursor:pointer;font-size:12px}
 #setup .card{margin-top:28px}
 label{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}
 input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--text)}
@@ -93,7 +93,7 @@ input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border
   <span class="hsp"></span>
   <span class="pill off" id="onPill" title="Aktivni posetioci u poslednjih 60 min"><i></i><b class="num" id="onN">—</b> online</span>
   <button class="ib" id="btnRef" type="button" aria-label="Osveži"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button>
-  <button class="ib" id="btnSet" type="button" aria-label="Podešavanja"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg></button>
+  <button class="ib" id="btnTheme" type="button" aria-label="Tema"><svg viewBox="0 0 24 24" id="icoTheme"></svg></button>
 </header>
 <div class="hmeta" id="hDate"></div>
 
@@ -136,7 +136,7 @@ input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border
     <ul class="refs" id="rList"></ul>
   </section>
 
-  <div class="foot" id="foot"></div>
+  <div class="foot"><span id="foot"></span><br><button class="lnk" id="btnSet" type="button">Podešavanje</button></div>
 </main>
 
 <section id="setup" hidden>
@@ -147,7 +147,6 @@ input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border
     <label for="inT">Ključ</label><input id="inT" type="password" autocomplete="off">
     <button class="btn" id="btnSave" type="button">Sačuvaj</button>
     <button class="btn ghost" id="btnForget" type="button" hidden>Zaboravi podešavanje na ovom uređaju</button>
-    <button class="btn ghost" id="btnTheme" type="button">Svetla / tamna tema</button>
     <button class="btn ghost" id="btnBack" type="button" hidden>Nazad</button>
   </div>
 </section>
@@ -182,6 +181,12 @@ function applyTheme() {
   const t = ls.get(LS.theme) || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   document.documentElement.dataset.theme = t;
   document.querySelector('meta[name=theme-color]').content = t === 'light' ? '#f4f2ec' : '#0e1014';
+  // ikonica = AKTIVNA tema: sunce (svetla) / mesec (tamna); dodir menja
+  const ico = document.getElementById('icoTheme'), btn = document.getElementById('btnTheme');
+  if (ico) ico.innerHTML = t === 'light'
+    ? '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>'
+    : '<path d="M20 14.2A8 8 0 0 1 9.8 4 8 8 0 1 0 20 14.2z"/>';
+  if (btn) btn.setAttribute('aria-label', t === 'light' ? 'Svetla tema je uključena — dodirni za tamnu' : 'Tamna tema je uključena — dodirni za svetlu');
 }
 applyTheme();
 
@@ -422,12 +427,14 @@ function barsChart(el, bins) {
 
 function render() {
   const cfg = !!CFG;
-  $('#setup').hidden = cfg && !S.showSetup; $('#app').hidden = !cfg || S.showSetup || !S.last;
+  const noData = cfg && S.err && !S.last;
+  $('#setup').hidden = cfg && !S.showSetup && !noData; $('#app').hidden = !cfg || S.showSetup || !S.last;
+  if (noData && !$('#inU').value) $('#inU').value = CFG.u;
   $('#btnForget').hidden = !cfg; $('#btnBack').hidden = !cfg;
   const msg = $('#msg');
   if (S.err && cfg) {
     msg.hidden = false; msg.className = 'msg';
-    msg.textContent = S.err.status === 403 ? 'Ključ nije prihvaćen (403). Otvori podešavanje i unesi ga ponovo.' : `Izvor ne odgovara (${S.err.message || S.err}). Pokušaću ponovo za minut.`;
+    msg.textContent = S.err.status === 403 ? 'Ključ nije prihvaćen. Unesi ga ponovo ispod.' : !S.last ? 'Ne mogu da pročitam izvor: nema veze ili ključ nije ispravan. Proveri internet, pa adresu i ključ ispod.' : `Izvor ne odgovara (${S.err.message || S.err}). Pokušaću ponovo za minut.`;
   } else msg.hidden = true;
   let L = S.last;
   if (!L || !cfg) return;
