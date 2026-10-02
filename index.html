@@ -203,8 +203,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <section class="card">
       <div class="ct"><h2>Kvalitet po izvoru</h2><span>udeo u posetama izvora</span></div>
       <table>
-        <colgroup><col><col class="w50"><col class="w54"><col class="w50"></colgroup>
-        <thead><tr><th>izvor</th><th>novi</th><th>bounce</th><th>mob.</th></tr></thead>
+        <colgroup><col><col class="w56"><col class="w56"></colgroup>
+        <thead><tr><th>izvor</th><th>novi</th><th>mob.</th></tr></thead>
         <tbody id="qBody"></tbody>
       </table>
     </section>
@@ -897,7 +897,7 @@ function renderSada({ L, on, cNow, cEst }) {
   $('#cProj').innerHTML = proj ? `očekivano danas <b class="num">≈ ${N(proj)}</b>` : `<span class="dt">${projWhy(L.tsm)}</span>`;
   $('#cDl').innerHTML = CMP.map(([back]) => { const y = dayAt(back, L.tsm, 0); return y ? `<span class="pl">${back === 1 ? 'juče' : 'pre ' + back + ' d'} ${pill(cNow / y - 1, CMP_DAY)}</span>` : ''; }).join('');
   const nb = L.u - (L.g.bots || 0);
-  $('#cSub').innerHTML = [eY && !eY.x && eY.c ? `juče ukupno <b class="num">${N(eY.c)}</b>` : '', L.nw != null && nb > 0 ? `novi <b class="num">${P(100 * L.nw / nb, 0)}</b>` : '', L.nw != null && nb > 0 ? `bounce <b class="num">${P(100 * L.bo / nb, 0)}</b>` : ''].filter(Boolean).join(' · ');
+  $('#cSub').innerHTML = [eY && !eY.x && eY.c ? `juče ukupno <b class="num">${N(eY.c)}</b>` : '', L.nw != null && nb > 0 ? `novi <b class="num">${P(100 * L.nw / nb, 0)}</b>` : ''].filter(Boolean).join(' · ');
   $('#cQ').textContent = cEst ? '≈ procena: server izvora je danas restartovan' : '';
   // histats skala: dolasci u prozoru x k po izvoru (iste konstante kao na racunaru)
   const hk = CFG.hk || {}, hw = CFG.hw || 12, AK = allKeys();
@@ -981,9 +981,9 @@ function renderDan({ L, cNow, cEst }) {
   const qrow = (cls, c, label, keys) => {
     const a = keys.reduce((s, k) => { const x = q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]);
     const f = i => a[5] ? P(100 * a[i] / a[5], 0) : '—';
-    return `<tr class="${cls}"><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${f(0)}</td><td class="num">${f(1)}</td><td class="num">${f(2)}</td></tr>`;
+    return `<tr class="${cls}"><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${f(0)}</td><td class="num">${f(2)}</td></tr>`;
   };
-  $('#qBody').innerHTML = q ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => qrow(cls, c, label, keys)).join('') + qrow('total', '', 'sve bez botova', allKeys().filter(k => k !== 'bots')) : '<tr><td colspan="4" class="mt">stiže sa sledećim redom</td></tr>';
+  $('#qBody').innerHTML = q ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => qrow(cls, c, label, keys)).join('') + qrow('total', '', 'sve bez botova', allKeys().filter(k => k !== 'bots')) : '<tr><td colspan="3" class="mt">stiže sa sledećim redom</td></tr>';
   // partneri: posete do sada + pil prema istom dobu pre 7 dana (isti broj kao red Partneri gore); po partneru danas / 30 min / udeo novih
   const pk = partKeys(), pNow = kcum(L.g, pk), pW = grpAt(7, L.tsm, pk);
   $('#tV').textContent = N(pNow);
@@ -1053,7 +1053,7 @@ function openSource(key) {
     <div class="sub">pil „isto doba" = do sada prema istom trenutku tog dana; pil „ceo dan" = projekcija prema celom tom danu</div>
     <h3>Tok dana</h3><div id="shDay"></div><div class="legend"><span><span class="sw" style="background:${color}"></span>danas</span><span>${sw('tail')}juče</span></div>
     <h3>Po danu</h3><div id="shDays"></div>
-    ${a && a[5] ? `<h3>Kvalitet danas</h3><div class="kv"><div><span>novi</span><b class="num">${P(100 * a[0] / a[5], 0)}</b></div><div><span>bounce</span><b class="num">${P(100 * a[1] / a[5], 0)}</b></div><div><span>mobilni</span><b class="num">${P(100 * a[2] / a[5], 0)}</b></div></div>` : ''}
+    ${a && a[5] ? `<h3>Kvalitet danas</h3><div class="kv"><div><span>novi</span><b class="num">${P(100 * a[0] / a[5], 0)}</b></div><div><span>mobilni</span><b class="num">${P(100 * a[2] / a[5], 0)}</b></div></div>` : ''}
     ${list.length > 1 ? `<h3>Referenti u grupi (${list.length})</h3><table><colgroup><col><col class="w54"><col class="w50"></colgroup><thead><tr><th>referer</th><th>danas</th><th>30 min</th></tr></thead><tbody>${list.slice(0, 25).map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[2])}</td><td class="num mt">${ra ? N(ra[x[0]] || 0) : '·'}</td></tr>`).join('')}</tbody></table>` : ''}`);
   fill('shDay', el => lineChart(el, [{ pts: pts(S.yday), color: 'var(--s-tail)', w: 1.5 }, { pts: pts(S.day), color, w: 2.2, fill: true }], { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110, top: K }) || (el.innerHTML = '<div class="sub">kriva stiže kad se skupi više redova</div>'));
   fill('shDays', el => hd.length ? dayBars(el, hd.map(([d, e], i) => ({ v: cum(e.g, keys), c: color, l: i === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v, c: color, o: true, l: 'danas' }]), { h: 90 }) : (el.innerHTML = '<div class="sub">istorija po izvoru se skuplja</div>'));
@@ -1069,7 +1069,7 @@ function openDay(d) {
     `<div class="row"><div class="mid num">${e.e ? '≈ ' : ''}${N(e.c)}</div>${today ? '' : pill(w && w.c ? e.c / w.c - 1 : null, .05)}</div>
     <div class="sub">${w && w.c ? `isti dan nedelju ranije <b class="num">${N(w.c)}</b>` : 'nema dana za poređenje nedelju ranije'}${(e.f || '') ? ` · oznaka: ${esc(e.f)}` : ''}${e.e ? ' · ≈ procena (server restartovan tog dana)' : ''}</div>
     ${pts.length > 1 ? '<h3>Tok dana</h3><div id="shDay"></div>' : ''}
-    <div class="kv" style="margin-top:12px">${kv('novi', e.nw != null && nb ? P(100 * e.nw / nb, 0) : '')}${kv('bounce', e.bo != null && nb ? P(100 * e.bo / nb, 0) : '')}${kv('desktop / mobilni', e.cd != null && e.c ? `${P(100 * e.cd / e.c, 0)} / ${P(100 * e.cm / e.c, 0)}` : '')}${kv('Googlebot zahtevi', e.b && e.b['bot-googlebot'] != null ? N(e.b['bot-googlebot']) : '')}</div>
+    <div class="kv" style="margin-top:12px">${kv('novi', e.nw != null && nb ? P(100 * e.nw / nb, 0) : '')}${kv('desktop / mobilni', e.cd != null && e.c ? `${P(100 * e.cd / e.c, 0)} / ${P(100 * e.cm / e.c, 0)}` : '')}${kv('Googlebot zahtevi', e.b && e.b['bot-googlebot'] != null ? N(e.b['bot-googlebot']) : '')}</div>
     ${rows ? `<h3>Izvori</h3><table><colgroup><col><col class="w56"><col class="w44"><col class="w62"></colgroup><thead><tr><th>izvor</th><th>posete</th><th>udeo</th><th>vs ned.</th></tr></thead><tbody>${rows}</tbody></table>${today ? '<div class="sub">vs ned. = do sada prema istom dobu dana pre 7 dana</div>' : ''}` : '<div class="sub">izvori po danu postoje za poslednjih ~90 dana</div>'}
     ${e.r && e.r.length ? `<h3>Najjači referenti</h3><table><colgroup><col><col class="w56"></colgroup><thead><tr><th>referer</th><th>posete</th></tr></thead><tbody>${e.r.map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[1])}</td></tr>`).join('')}</tbody></table>` : ''}`);
   fill('shDay', el => lineChart(el, [{ pts, color: 'var(--gold)', w: 2.2, fill: true }], { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110, top: K }));
