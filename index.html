@@ -272,7 +272,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
-const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', cmp: 'puls.m.cmp', cm: 'puls.m.cm' };
+const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', cmp: 'puls.m.cmp', cm: 'puls.m.cm', ks: 'puls.m.ks' };
 const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
              has(k) { try { return localStorage.getItem(k) != null; } catch (e) { return false; } } };
@@ -571,6 +571,7 @@ async function load(first) {
     if (other) { S.busy = false; S.today = null; return load(true); }   // stigli redovi drugog datuma = ponoc
     S.err = null;
     if (S.last && S.last._r) putHist(S.today, summary(S.last, S.day, true));
+    if (KS.src !== 'm') learnK();
     saveDays(); saveHist(); render();
     // juce (jednom): kriva za poredjenje + dnevni zapis
     const yd = prevDate(S.today);
@@ -639,6 +640,29 @@ const refKeys = () => allKeys().filter(k => k !== 'bots' && k !== 'direct');
 let KS = { s: 1, p: 1 };
 function learnK() {
   const rs = [], rp = [], pk = partKeys(), last = a => a.reduce((q, x) => x != null ? x : q, null);
+  const ok = v => v > 0.9 && v < 1.1;
+  // (1) ISTI MINUT istog dana: klonova kriva (uvoz sa racunara) prema zbiru po refereru iz redova izvora, za dane koje telefon ima
+  //     na oba nacina (dan uvoza i kasniji) — odnos je tokom dana stabilan (izmereno 2.10.2026: 0,990-0,991 od 12 do 21 h)
+  for (const d of Object.keys(CV).sort().reverse().slice(0, 4)) {
+    const cv = CV[d], day = d === S.today ? S.day : ls.get(LS.day(d));
+    if (!cv || !cv[1] || !cv[2] || !day || !day.s) continue;
+    for (let j = 0; j < cv[2].length; j += 3) {
+      const hv = cv[1][j], sv = cv[2][j], m = 35 + 10 * j;
+      if (hv == null || sv == null) continue;
+      const so = valAt(day, m, x => x[6] ? cum(x[6], SEARCH) : null), po = valAt(day, m, x => x[6] ? cum(x[6], pk) : null);
+      if (so > 0 && po > 0) { rs.push(sv / so); rp.push((hv - sv) / po); }
+    }
+  }
+  if (rs.length >= 6 && ok(median(rs)) && ok(median(rp))) {
+    KS = { s: median(rs), p: median(rp), src: 'm' };
+    ls.set(LS.ks, { s: KS.s, p: KS.p, d: S.today });
+    return;
+  }
+  // (2) ranije nauceno na ovom telefonu (uvoz ne stari: odnos je svojstvo dva brojaca, ne dana)
+  const saved = ls.get(LS.ks);
+  if (saved && ok(saved.s) && ok(saved.p)) { KS = { s: saved.s, p: saved.p, src: 'ls' }; return; }
+  // (3) rezerva: dnevni zbirovi uvezenih dana (oko 0,5 % nize od odnosa u toku dana)
+  rs.length = 0; rp.length = 0;
   for (const d of Object.keys(CV).sort().reverse()) {
     const e = H[d], cv = CV[d];
     if (!e || e.x || e.p || e.src !== 'pc' || !e.g || !e.h || !cv || !cv[1] || !cv[2] || cv[1][cv[1].length - 1] == null) continue;   // samo ceo dan
@@ -648,7 +672,7 @@ function learnK() {
     rs.push(sTot / so); rp.push((e.h - sTot) / po);
     if (rs.length >= 7) break;
   }
-  const ok = v => v > 0.9 && v < 1.1, s = median(rs), p = median(rp);
+  const s = median(rs), p = median(rp);
   KS = { s: rs.length >= 3 && ok(s) ? s : 1, p: rp.length >= 3 && ok(p) ? p : 1 };
 }
 // zbir grupa: cela klasa pretrazivaca / partnera / obe = na klonovoj skali, sve ostalo sirovo
