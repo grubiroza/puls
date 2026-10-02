@@ -41,11 +41,15 @@ button{font:inherit;color:inherit}
 .ib svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .ib.spin svg{animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+.tabs{display:flex;gap:6px;margin:0 0 12px}
+.tabs button{flex:1;padding:8px 0;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-2);font-size:13px;cursor:pointer}
+.tabs button.on{background:var(--card);color:var(--text);font-weight:650;border-color:var(--gold)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
 .ct{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
 .ct h2{margin:0;font-size:13px;font-weight:600}
 .ct span{color:var(--text-3);font-size:11.5px;text-align:right}
 .big{font-size:40px;font-weight:700;line-height:1.05;letter-spacing:-.5px}
+.mid{font-size:26px;font-weight:700;line-height:1.1}
 .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sub{color:var(--text-2);font-size:12.5px;margin-top:6px}
 .sub b{color:var(--text);font-weight:600}
@@ -64,9 +68,11 @@ td:first-child{text-align:left}
 tr.lead td{font-weight:650}
 tr.child td:first-child{padding-left:14px;color:var(--text-2)}
 tr.total td{border-top:2px solid var(--line);font-weight:650}
+tr.tap{cursor:pointer}
+tr.dim td{color:var(--text-3)}
 td.mt{color:var(--text-2)}
 .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
-col.c-n{width:auto}col.c-a{width:54px}col.c-b{width:38px}col.c-c{width:44px}col.c-d{width:56px}
+.w54{width:54px}.w38{width:38px}.w44{width:44px}.w56{width:56px}.w48{width:48px}.w62{width:62px}.w50{width:50px}
 .refs{list-style:none;margin:0;padding:0}
 .refs li{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
 .refs li:first-child{border-top:0}
@@ -74,8 +80,16 @@ col.c-n{width:auto}col.c-a{width:54px}col.c-b{width:38px}col.c-c{width:44px}col.
 .refs .v{font-weight:650}
 .refs .t{color:var(--text-3);font-size:12px;width:58px;text-align:right}
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--text-2);font-size:11.5px;margin-top:6px}
+.chips{display:flex;gap:6px}
+.chips button{padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-2);font-size:12px;cursor:pointer}
+.chips button.on{background:var(--card-2);color:var(--text);font-weight:650}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.kv div{background:var(--card-2);border-radius:10px;padding:8px 10px}
+.kv span{display:block;color:var(--text-3);font-size:11px}
+.kv b{font-size:16px}
 .msg{border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px;background:var(--down-soft);color:var(--down-ink)}
 .msg.warn{background:rgba(245,181,63,.14);color:var(--amber)}
+.msg.ok{background:var(--up-soft);color:var(--up-ink)}
 .foot{color:var(--text-3);font-size:11.5px;text-align:center;margin-top:4px}
 .lnk{background:none;border:0;color:var(--text-2);text-decoration:underline;padding:10px;cursor:pointer;font-size:12px}
 #setup .card{margin-top:28px}
@@ -83,6 +97,12 @@ label{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}
 input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--text)}
 .btn{margin-top:14px;width:100%;padding:11px;border-radius:10px;border:0;background:var(--gold);color:#1a1a1a;font-weight:650;cursor:pointer}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text-2);font-weight:500}
+dialog{border:0;padding:0;margin:auto auto 0;width:100%;max-width:560px;max-height:88vh;border-radius:16px 16px 0 0;background:var(--card);color:var(--text)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.sh-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 14px 8px;position:sticky;top:0;background:var(--card);z-index:1}
+.sh-head h2{margin:0;font-size:16px}
+#shBody{padding:0 14px calc(18px + env(safe-area-inset-bottom))}
+#shBody h3{font-size:12px;font-weight:600;color:var(--text-2);margin:16px 0 4px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -98,43 +118,107 @@ input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border
 <div class="hmeta" id="hDate"></div>
 
 <div id="msg" class="msg" hidden></div>
+<div id="note" class="msg ok" hidden></div>
 
 <main id="app" hidden>
-  <section class="card">
-    <div class="ct"><h2>Posete danas</h2><span id="cMeta"></span></div>
-    <div class="row"><div class="big num" id="cV">—</div><span id="cDl"></span></div>
-    <div class="sub" id="cSub"></div>
-    <div class="sub" id="cQ"></div>
-    <div id="chDay"></div>
-    <div class="legend" id="dayLeg" hidden><span><span class="sw" style="background:var(--gold)"></span>danas</span><span><span class="sw" style="background:var(--s-tail)"></span>juče</span></div>
-  </section>
+  <nav class="tabs" id="tabs">
+    <button type="button" data-t="sada">Sada</button><button type="button" data-t="dan">Dan</button><button type="button" data-t="dani">Dani</button>
+  </nav>
 
-  <section class="card">
-    <div class="ct"><h2>Online sada</h2><span>aktivni u 60 min</span></div>
-    <div class="row"><div class="big num" id="oV">—</div></div>
-    <div class="sub" id="oSub"></div>
-    <div id="chOn"></div>
-  </section>
+  <div id="tSada">
+    <section class="card">
+      <div class="ct"><h2>Posete danas</h2><span id="cMeta"></span></div>
+      <div class="row"><div class="big num" id="cV">—</div><span id="cDl"></span></div>
+      <div class="sub" id="cSub"></div>
+      <div class="sub" id="cQ"></div>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Online sada</h2><span>aktivni u 60 min</span></div>
+      <div class="row"><div class="big num" id="oV">—</div></div>
+      <div class="sub" id="oSub"></div>
+      <div id="chOn"></div>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Izvori</h2><span>dodir na red = detalji</span></div>
+      <table>
+        <colgroup><col><col class="w54"><col class="w38"><col class="w44"><col class="w56"></colgroup>
+        <thead><tr><th>izvor</th><th>do sada</th><th>5 min</th><th>30 min</th><th>vs juče</th></tr></thead>
+        <tbody id="sBody"></tbody>
+      </table>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Dolasci po 10 min</h2><span>poslednja 2 h</span></div>
+      <div id="chBars"></div>
+      <div class="legend"><span><span class="sw" style="background:var(--s-google)"></span>pretraživači</span><span><span class="sw" style="background:var(--s-trade)"></span>partneri</span><span><span class="sw" style="background:var(--s-direct)"></span>direktno</span></div>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Referenti</h2><span>dolasci 30 min · danas</span></div>
+      <ul class="refs" id="rList"></ul>
+    </section>
+  </div>
 
-  <section class="card">
-    <div class="ct"><h2>Izvori</h2><span id="sMeta"></span></div>
-    <table>
-      <colgroup><col class="c-n"><col class="c-a"><col class="c-b"><col class="c-c"><col class="c-d"></colgroup>
-      <thead><tr><th>izvor</th><th>do sada</th><th>5 min</th><th>30 min</th><th>vs juče</th></tr></thead>
-      <tbody id="sBody"></tbody>
-    </table>
-  </section>
+  <div id="tDan" hidden>
+    <section class="card">
+      <div class="ct"><h2>Tok dana</h2><span id="dMeta"></span></div>
+      <div id="chDay"></div>
+      <div class="legend" id="dayLeg"></div>
+      <div class="sub" id="dSub"></div>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Posete po satu</h2><span>danas · juče</span></div>
+      <table>
+        <colgroup><col><col class="w62"><col class="w62"><col class="w62"></colgroup>
+        <thead><tr><th>sat</th><th>danas</th><th>juče</th><th>razlika</th></tr></thead>
+        <tbody id="hBody"></tbody>
+      </table>
+      <button class="lnk" id="btnHours" type="button"></button>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Kvalitet po izvoru</h2><span>udeo u posetama izvora</span></div>
+      <table>
+        <colgroup><col><col class="w48"><col class="w50"><col class="w48"><col class="w44"></colgroup>
+        <thead><tr><th>izvor</th><th>novi</th><th>bounce</th><th>mob.</th><th>out</th></tr></thead>
+        <tbody id="qBody"></tbody>
+      </table>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Trade</h2><span>out klikovi po referisanoj poseti</span></div>
+      <div class="row"><div class="mid num" id="tV">—</div><span id="tDl"></span></div>
+      <div class="sub" id="tSub"></div>
+      <table style="margin-top:10px">
+        <colgroup><col><col class="w54"><col class="w44"><col class="w44"><col class="w44"></colgroup>
+        <thead><tr><th>partner</th><th>danas</th><th>30 min</th><th>out</th><th>out %</th></tr></thead>
+        <tbody id="tBody"></tbody>
+      </table>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Botovi</h2><span>zahtevi (raw) po danu</span></div>
+      <table>
+        <colgroup><col><col class="w62"><col class="w62"><col class="w62"></colgroup>
+        <thead><tr><th>bot</th><th>danas</th><th>juče</th><th>7 d</th></tr></thead>
+        <tbody id="bBody"></tbody>
+      </table>
+      <div id="chBots"></div>
+      <div class="sub" id="bSub"></div>
+    </section>
+  </div>
 
-  <section class="card">
-    <div class="ct"><h2>Dolasci po 10 min</h2><span>poslednja 2 h</span></div>
-    <div id="chBars"></div>
-    <div class="legend"><span><span class="sw" style="background:var(--s-google)"></span>pretraživači</span><span><span class="sw" style="background:var(--s-trade)"></span>partneri</span><span><span class="sw" style="background:var(--s-direct)"></span>direktno</span></div>
-  </section>
-
-  <section class="card">
-    <div class="ct"><h2>Referenti</h2><span>dolasci 30 min · danas</span></div>
-    <ul class="refs" id="rList"></ul>
-  </section>
+  <div id="tDani" hidden>
+    <section class="card">
+      <div class="ct"><h2>Posete po danima</h2><div class="chips" id="rng"><button type="button" data-n="14">14</button><button type="button" data-n="30">30</button><button type="button" data-n="90">90</button><button type="button" data-n="365">365</button></div></div>
+      <div id="chDays"></div>
+      <div class="sub" id="daysSub"></div>
+    </section>
+    <section class="card">
+      <div class="ct"><h2>Po danu</h2><span>dodir na dan = detalji</span></div>
+      <table>
+        <colgroup><col><col class="w56"><col class="w56"><col class="w50"><col class="w44"></colgroup>
+        <thead><tr><th>dan</th><th>posete</th><th>vs ned.</th><th>Google</th><th>out</th></tr></thead>
+        <tbody id="dBody"></tbody>
+      </table>
+      <div class="sub" id="daysNote"></div>
+    </section>
+  </div>
 
   <div class="foot"><span id="foot"></span><br><button class="lnk" id="btnSet" type="button">Podešavanje</button></div>
 </main>
@@ -146,47 +230,83 @@ input{width:100%;font:15px var(--ff);padding:10px 12px;border-radius:10px;border
     <label for="inU">Adresa izvora</label><input id="inU" type="url" autocomplete="off" autocapitalize="off" spellcheck="false">
     <label for="inT">Ključ</label><input id="inT" type="password" autocomplete="off">
     <button class="btn" id="btnSave" type="button">Sačuvaj</button>
+    <div class="sub" id="histInfo"></div>
     <button class="btn ghost" id="btnForget" type="button" hidden>Zaboravi podešavanje na ovom uređaju</button>
     <button class="btn ghost" id="btnBack" type="button" hidden>Nazad</button>
   </div>
 </section>
+
+<dialog id="sheet">
+  <div class="sh-head"><h2 id="shTitle"></h2><button class="ib" id="shClose" type="button" aria-label="Zatvori"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div id="shBody"></div>
+</dialog>
 </div>
 
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
-const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme' };
+const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng' };
 const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
-             del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+             has(k) { try { return localStorage.getItem(k) != null; } catch (e) { return false; } } };
 const N = v => v == null || isNaN(v) ? '—' : Math.round(v).toLocaleString('de-DE');
+const K = v => v == null || isNaN(v) ? '—' : v >= 10000 ? (v / 1000).toLocaleString('de-DE', { maximumFractionDigits: v >= 100000 ? 0 : 1 }) + 'k' : N(v);
 const P = (v, d = 1) => v == null || isNaN(v) ? '—' : v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }).replace('-', '−') + ' %';
 const hms = t => t ? new Date(t * 1000).toTimeString().slice(0, 8) : '—';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const num = x => parseInt(String(x == null ? 0 : x).replace(/,/g, '').trim() || '0', 10) || 0;
+const DOW = ['ned', 'pon', 'uto', 'sre', 'čet', 'pet', 'sub'];
+const addDays = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+const prevDate = d => addDays(d, -1);
+const dstr = d => { const x = new Date(d + 'T12:00:00Z'); return DOW[x.getUTCDay()] + ' ' + x.getUTCDate() + '.' + (x.getUTCMonth() + 1) + '.'; };
+const median = a => { const s = a.filter(x => x != null && !isNaN(x)).sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
 
-// ---------------------------------------------------------------- podesavanje
+// ---------------------------------------------------------------- podesavanje + uvoz istorije sa racunara
 let CFG = ls.get(LS.cfg);
-(function fromHash() {
-  const m = location.hash.match(/[#&]s=([^&]+)/);
-  if (!m) return;
-  try {
-    const b = m[1].replace(/-/g, '+').replace(/_/g, '/');
-    const c = JSON.parse(decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))));
-    if (c && c.u && c.t) { CFG = c; ls.set(LS.cfg, c); }
-  } catch (e) {}
-  history.replaceState(null, '', location.pathname + location.search);
+let H = ls.get(LS.hist) || {};       // istorija po danu: {datum: {c, e, u, nb, k, h, nw, bo, mo, cd, cm, g, q, b, r, f, src, p}}
+let NOTE = null;
+const b64bytes = s => { const b = s.replace(/-/g, '+').replace(/_/g, '/'); return Uint8Array.from(atob(b + '==='.slice((b.length + 3) % 4)), c => c.charCodeAt(0)); };
+const IMPORT = (function fromHash() {
+  const m = location.hash.match(/[#&]s=([^&]+)/), h = location.hash.match(/[#&]h=([^&]+)/);
+  if (m) {
+    try {
+      const c = JSON.parse(new TextDecoder().decode(b64bytes(m[1])));
+      if (c && c.u && c.t) { CFG = c; ls.set(LS.cfg, c); }
+    } catch (e) {}
+  }
+  if (m || h) history.replaceState(null, '', location.pathname + location.search);
+  return h ? h[1] : null;
 })();
+async function importHist(b64) {
+  // istorija sa racunara (phone_setup.py --history): zlib + base64 u delu linka iza # — tacne dnevne posete i izvori pre nego sto je
+  // izvor poceo da cuva redove; dani koje telefon vec ima iz izvora zadrzavaju svoje detalje (kvalitet, referenti)
+  try {
+    if (!('DecompressionStream' in window)) throw new Error('browser ne podržava raspakivanje');
+    const txt = await new Response(new Blob([b64bytes(b64)]).stream().pipeThrough(new DecompressionStream('deflate'))).text();
+    const doc = JSON.parse(txt);
+    let n = 0;
+    for (const r of doc.d) {
+      const [d, c, cd, cm, k, hu, hk, nw, bo, nb, fl, gv, bv] = r;
+      const e = { c, cd, cm, k: hk, h: hu, nw, bo, nb, f: fl || '', src: 'pc' };   // out = klonov hourly par (klikovi iz countries su kod starih dana druga mera)
+      if (gv) { e.g = {}; doc.gk.forEach((key, i) => { if (gv[i]) e.g[key] = gv[i]; }); }
+      if (bv) e.b = bv;
+      const o = H[d];
+      if (o && o.src !== 'pc' && !o.x) { e.q = o.q; e.r = o.r; e.mo = o.mo; if (!e.b) e.b = o.b; if (!e.g) e.g = o.g; }
+      H[d] = e; n++;
+    }
+    ls.set(LS.hist, H);
+    NOTE = `Uvezeno ${n} dana istorije sa računara (do ${dstr(doc.d[doc.d.length - 1][0])}).`;
+  } catch (e) { NOTE = 'Uvoz istorije nije uspeo: ' + (e.message || e); }
+}
 function applyTheme() {
   const t = ls.get(LS.theme) || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   document.documentElement.dataset.theme = t;
   document.querySelector('meta[name=theme-color]').content = t === 'light' ? '#f4f2ec' : '#0e1014';
   // ikonica = AKTIVNA tema: sunce (svetla) / mesec (tamna); dodir menja
-  const ico = document.getElementById('icoTheme'), btn = document.getElementById('btnTheme');
-  if (ico) ico.innerHTML = t === 'light'
+  $('#icoTheme').innerHTML = t === 'light'
     ? '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>'
     : '<path d="M20 14.2A8 8 0 0 1 9.8 4 8 8 0 1 0 20 14.2z"/>';
-  if (btn) btn.setAttribute('aria-label', t === 'light' ? 'Svetla tema je uključena — dodirni za tamnu' : 'Tamna tema je uključena — dodirni za svetlu');
+  $('#btnTheme').setAttribute('aria-label', t === 'light' ? 'Svetla tema je uključena — dodirni za tamnu' : 'Tamna tema je uključena — dodirni za svetlu');
 }
 applyTheme();
 
@@ -210,16 +330,17 @@ function groupOf(name, isbot, ispub) {
   return 'other';
 }
 const SEARCH = ['google', 'bing', 'duckduckgo', 'yahoo', 'search_other', 'other', 'social'];
+const partKeys = () => ['trade'].concat(EXTRA.map(x => x.key));
 function tableRows() {
-  const part = ['trade'].concat(EXTRA.map(x => x.key));
-  return { part, rows: [
-    ['search', 'Pretraživači', 'lead', SEARCH, 'google'], ['google', 'Google', 'child', ['google'], 'google'], ['bing', 'Bing', 'child', ['bing'], 'bing'],
+  return [['search', 'Pretraživači', 'lead', SEARCH, 'google'], ['google', 'Google', 'child', ['google'], 'google'], ['bing', 'Bing', 'child', ['bing'], 'bing'],
     ['duckduckgo', 'DuckDuckGo', 'child', ['duckduckgo'], 'duckduckgo'], ['yahoo', 'Yahoo', 'child', ['yahoo'], 'yahoo'],
     ['rest', 'Ostali', 'child', ['search_other', 'other', 'social'], 'tail'],
-    ['part', 'Partneri', 'lead', part, 'trade'], ['trade', 'Trade', 'child', ['trade'], 'trade']]
+    ['part', 'Partneri', 'lead', partKeys(), 'trade'], ['trade', 'Trade', 'child', ['trade'], 'trade']]
     .concat(EXTRA.map(x => [x.key, x.label, 'child', [x.key], 'x']))
-    .concat([['direct', 'Direktno', 'lead', ['direct'], 'direct'], ['bots', 'Botovi', 'lead', ['bots'], 'tail']]) };
+    .concat([['direct', 'Direktno', 'lead', ['direct'], 'direct'], ['bots', 'Botovi', 'lead', ['bots'], 'tail']]);
 }
+const allKeys = () => SEARCH.concat(partKeys(), ['direct', 'bots']);
+const botName = n => { const s = String(n).replace(/^bot-/, ''); return s === 'googlebot' ? 'Googlebot' : s.charAt(0).toUpperCase() + s.slice(1) + (s === 'bing' || s === 'yahoo' || s === 'yandex' ? ' bot' : ''); };
 
 // ---------------------------------------------------------------- red -> objekat
 function parseLine(line) {
@@ -235,12 +356,12 @@ function parseLine(line) {
   let lag = s.generated_at ? (Date.parse(s.generated_at) - t0) / 1000 : 0;
   if (!(lag >= 0 && lag <= 600)) lag = 0;
   const g = {}, refs = {};
-  let nw = null, bo = null, su = 0;
+  let nw = null, bo = null, su = 0, ko = 0;
   for (const name of names) {
     if (name === 'GOOGLE') continue;
     const v = s.refs[name], u = num(v.uniq_in), bot = v.isbot === 'Y';
     const grp = groupOf(name, bot, v.ispublic === 'Y');
-    g[grp] = (g[grp] || 0) + u; refs[name] = u; su += u;
+    g[grp] = (g[grp] || 0) + u; refs[name] = u; su += u; ko += num(v.clicks_uniq_out);
     if (!bot) {
       if (v.new_uniq_in != null) nw = (nw || 0) + num(v.new_uniq_in);
       if (v.bounce_uniq_in != null) bo = (bo || 0) + num(v.bounce_uniq_in);
@@ -251,7 +372,23 @@ function parseLine(line) {
   // (2.10.2026 14:37 i 14:47), dok zbir po refereru nastavlja. Zdrav odnos uv/u je ~0,90 -> van 0,75-1,02 broj se ne koristi.
   const uvRaw = sm.uniq_visitors != null ? num(sm.uniq_visitors) : null, uvOk = uvRaw != null && u > 0 && uvRaw / u >= 0.75 && uvRaw / u <= 1.02;
   return { ts, date: ts.slice(0, 10), at: t0 / 1000 + lag, tsm: (+ts.slice(11, 13)) * 60 + (+ts.slice(14, 16)), on: s.onlines == null ? null : num(s.onlines),
-           u, uv: uvOk ? uvRaw : null, rst: uvRaw != null && !uvOk, nw, bo, g, refs };
+           u, uv: uvOk ? uvRaw : null, rst: uvRaw != null && !uvOk, nw, bo, k: sm.clicks_uniq_out != null ? num(sm.clicks_uniq_out) : ko, g, refs, _r: s.refs };
+}
+// puni detalji reda (samo za poslednji red / poslednji red dana): kvalitet po grupi, botovi po imenu, refereri
+function detail(row) {
+  if (row._d || !row._r) return row._d || null;
+  const q = {}, bots = {}, list = [];
+  for (const name of Object.keys(row._r)) {
+    if (name === 'GOOGLE') continue;
+    const v = row._r[name], bot = v.isbot === 'Y', grp = groupOf(name, bot, v.ispublic === 'Y');
+    const x = [name, grp, num(v.uniq_in), num(v.raw_in), num(v.clicks_uniq_out), num(v.new_uniq_in), num(v.bounce_uniq_in), num(v.mobile_uniq_in)];
+    const a = q[grp] || (q[grp] = [0, 0, 0, 0, 0, 0]);       // [novi, bounce, mobilni, out, raw, uniq]
+    a[0] += x[5]; a[1] += x[6]; a[2] += x[7]; a[3] += x[4]; a[4] += x[3]; a[5] += x[2];
+    if (bot) bots[name] = x[3];
+    list.push(x);
+  }
+  list.sort((a, b) => b[2] - a[2]);
+  return (row._d = { q, bots, refs: list });
 }
 
 async function fetchRows(params, onRow) {
@@ -276,23 +413,23 @@ async function fetchRows(params, onRow) {
 }
 
 // ---------------------------------------------------------------- stanje
-const KEEP_MIN = 130, REFS_MIN = 40;
-const S = { today: null, rows: [], day: null, yday: null, last: null, err: null, busy: false, next: 0 };
-// dan = {date, last, s: {bin: [tsm, uv, u, on, nw, bo, g]}} — bin = 10 min, vrednost = poslednji red u binu
+const KEEP_MIN = 130, REFS_MIN = 40, BINS_DAYS = 8, BACK_DAYS = 29;
+const S = { today: null, rows: [], day: null, yday: null, wday: null, last: null, err: null, busy: false, next: 0, hold: false, cycle: 0,
+            tab: ls.get(LS.tab) || 'sada', rng: ls.get(LS.rng) || 14, allHours: false };
+// dan = {date, last, s: {bin: [tsm, uv, u, on, nw, bo, g, k]}} — bin = 10 min, vrednost = poslednji red u binu
 const newDay = date => ({ date, last: null, s: {}, lastU: 0 });
-const prevDate = d => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - 1); return x.toISOString().slice(0, 10); };
 // posete u binu: tacan broj kad ga red nosi, inace zbir po refereru x poslednji zdrav odnos tog dana (procena)
 const kOf = day => (day && day.k) || (S.yday && S.yday.k) || 0.9;
 const cOf = day => x => x[1] != null ? x[1] : (x[2] ? x[2] * kOf(day) : null);
-const finalU = day => { if (!day) return null; const k = Object.keys(day.s).map(Number); return k.length ? day.s[Math.max(...k)][2] : null; };
-
+const lastBin = day => { if (!day) return null; const k = Object.keys(day.s).map(Number); return k.length ? day.s[Math.max(...k)] : null; };
+const finalU = day => { const b = lastBin(day); return b ? b[2] : null; };
 // red novog dana koji jos nosi jucerasnji kumulativ: u prva 3 sata zbir veci od pola jucerasnjeg dana nije moguc
 const carried = (row, yU) => !!(row && yU && row.tsm < 180 && row.u > 0.5 * yU);
 function addToDay(day, row, yU) {
   if (row.date !== day.date || (day.last && row.ts <= day.last)) return false;
   if (carried(row, yU)) return false;
   if (day.lastU > 200 && row.u < 0.5 * day.lastU) { day.s = {}; if (day === S.day) S.rows = []; }   // reset brojaca usred datuma
-  day.s[Math.floor(row.tsm / 10)] = [row.tsm, row.uv, row.u, row.on, row.nw, row.bo, row.g];
+  day.s[Math.floor(row.tsm / 10)] = [row.tsm, row.uv, row.u, row.on, row.nw, row.bo, row.g, row.k];
   day.last = row.ts; day.lastU = row.u;
   if (row.uv != null && row.u) day.k = row.uv / row.u;      // poslednji zdrav odnos posete / zbir po refereru
   return true;
@@ -300,14 +437,39 @@ function addToDay(day, row, yU) {
 function valAt(day, minute, pick) {
   if (!day) return null;
   const pts = Object.values(day.s).filter(x => pick(x) != null).sort((a, b) => a[0] - b[0]);
-  let a = null, b = null;
+  if (!pts.length) return null;
+  if (minute <= 0) return pts[0][0] <= 40 ? 0 : null;
+  let a = [0, null], b = null;                               // pocetak dana = 0 (vazi samo kad prvi red nije daleko)
   for (const p of pts) { if (p[0] <= minute) a = p; else { b = p; break; } }
-  if (a && b && b[0] - a[0] <= 40) return pick(a) + (pick(b) - pick(a)) * (minute - a[0]) / (b[0] - a[0]);
-  if (a && minute - a[0] <= 15) return pick(a);
+  const va = a[1] === null && a[0] === 0 ? 0 : pick(a);
+  if (b && b[0] - a[0] <= 40) return va + (pick(b) - va) * (minute - a[0]) / (b[0] - a[0]);
+  if (a[0] > 0 && minute - a[0] <= 15) return va;
   return null;
 }
+const cum = (g, keys) => keys.reduce((s, k) => s + ((g && g[k]) || 0), 0);
+// dnevni zapis iz poslednjeg reda dana
+function summary(row, day, partial) {
+  const d = detail(row), bots = row.g.bots || 0, direct = row.g.direct || 0, est = row.uv == null;
+  const e = { c: Math.round(est ? row.u * kOf(day) : row.uv), u: row.u, nb: row.u - bots, k: row.k, h: row.u - bots - direct, nw: row.nw, bo: row.bo, g: row.g, src: 'j' };
+  if (d) {
+    e.q = d.q; e.b = d.bots;
+    e.mo = Object.keys(d.q).reduce((s, k) => s + (k === 'bots' ? 0 : d.q[k][2]), 0);
+    e.r = d.refs.filter(x => x[1] !== 'bots' && x[1] !== 'direct').slice(0, 15).map(x => [x[0], x[2], x[4]]);
+  }
+  if (est) e.e = 1;
+  if (partial) e.p = 1;
+  return e;
+}
+function putHist(d, e) {
+  const o = H[d];
+  if (o && o.src === 'pc') H[d] = Object.assign({}, o, { q: e.q, r: e.r, mo: e.mo, b: o.b || e.b, g: o.g || e.g, jd: 1 });   // racunar ima tacne zbirove, izvor dodaje detalje
+  else H[d] = e;
+}
+const saveHist = () => ls.set(LS.hist, H);
 function pushRow(row) {
-  if (!addToDay(S.day, row, finalU(S.yday))) return;
+  if (!addToDay(S.day, row, finalU(S.yday))) { row._r = null; return; }
+  const prev = S.rows[S.rows.length - 1];
+  if (prev) { prev._r = null; prev._d = null; }
   S.rows.push(row); S.last = row;
   const cut = row.at - KEEP_MIN * 60, rcut = row.at - REFS_MIN * 60;
   while (S.rows.length && S.rows[0].at < cut) S.rows.shift();
@@ -315,7 +477,30 @@ function pushRow(row) {
 }
 function saveDays() {
   if (S.day) ls.set(LS.day(S.day.date), S.day);
-  try { Object.keys(localStorage).filter(k => k.startsWith('puls.m.day.') && k.slice(11) < prevDate(prevDate(S.today))).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { Object.keys(localStorage).filter(k => k.startsWith('puls.m.day.') && k.slice(11) < addDays(S.today, -BINS_DAYS)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+}
+// ceo prosli dan iz izvora -> dnevni zapis (+ binovi za poredjenje krive, ako je dan skorasnji)
+async function loadDay(d, keep) {
+  const day = newDay(d);
+  let last = null;
+  const n = await fetchRows({ date: d }, r => { if (addToDay(day, r, null)) { if (last) last._r = null; last = r; } else r._r = null; });
+  day.done = true;
+  if (last) putHist(d, summary(last, day, false));
+  else if (H[d] && !H[d].p) H[d].jx = 1;                     // izvor nema taj dan (pre pocetka ili van cuvanja)
+  else H[d] = { x: 1 };
+  if (keep) ls.set(LS.day(d), day);
+  saveHist();
+  return { day, n };
+}
+function nextBackfill() {
+  let low = null;
+  for (let i = 2; i <= BACK_DAYS; i++) {
+    const d = addDays(S.today, -i), e = H[d];
+    if (!e || e.p) return d;
+    if (i === 7 && !e.x && !e.jx && !ls.has(LS.day(d))) return d;      // isti dan prosle nedelje: treba kriva
+    if (!low && e.src === 'pc' && !e.jd && !e.jx) low = d;
+  }
+  return low;
 }
 
 // ---------------------------------------------------------------- ucitavanje
@@ -334,13 +519,14 @@ async function load(first) {
         S.today = date; S.rows = []; S.last = null;
         S.day = ls.get(LS.day(date)) || newDay(date);
         S.yday = ls.get(LS.day(prevDate(date)));
+        S.wday = ls.get(LS.day(addDays(date, -7)));
       }
       if (S.hold) { S.last = head; S.err = null; render(); return; }
       if (!S.last) { S.last = head; render(); }
     }
     // danas: od poslednjeg sacuvanog reda, ali najmanje poslednjih KEEP_MIN minuta (dolasci 5/30 min traze redove po minutu)
     let other = false;
-    const take = r => { if (r.date !== S.today) other = true; else pushRow(r); };
+    const take = r => { if (r.date !== S.today) { other = true; r._r = null; } else pushRow(r); };
     const mem = S.rows.length ? S.rows[S.rows.length - 1].ts : null;
     if (mem) await fetchRows({ since: mem }, take);
     else if (S.day.last) {
@@ -354,13 +540,23 @@ async function load(first) {
     if (S.rows.length) S.last = S.rows[S.rows.length - 1];
     if (other) { S.busy = false; S.today = null; return load(true); }   // stigli redovi drugog datuma = ponoc
     S.err = null;
-    saveDays(); render();
-    // juce (jednom): za "juce u isto vreme" i krivu dana
+    if (S.last && S.last._r) putHist(S.today, summary(S.last, S.day, true));
+    saveDays(); saveHist(); render();
+    // juce (jednom): kriva za poredjenje + dnevni zapis
     const yd = prevDate(S.today);
-    if (!S.yday || !S.yday.done) {
-      const y = newDay(yd);
-      await fetchRows({ date: yd }, r => addToDay(y, r, null));
-      y.done = true; S.yday = y; ls.set(LS.day(yd), y); render();
+    if (!S.yday || !S.yday.done) { S.yday = (await loadDay(yd, true)).day; render(); }
+    else if (!H[yd] || H[yd].p) { await loadDay(yd, true); render(); }
+    // stariji dani koje telefon jos nema (izvor cuva 30 dana): jedan pun dan po ciklusu, prazne probe odmah dalje
+    if (S.cycle++ % 3 === 0) {
+      for (let i = 0; i < 8; i++) {
+        const d = nextBackfill();
+        if (!d) break;
+        const keep = d >= addDays(S.today, -BINS_DAYS);
+        const res = await loadDay(d, keep);
+        if (d === addDays(S.today, -7)) S.wday = res.day;
+        if (res.n) break;
+      }
+      render();
     }
   } catch (e) {
     S.err = e; render();
@@ -385,52 +581,83 @@ function arrivals(keys, minutes) {
   if (age < secs * .6 || age > secs * 1.6) return null;
   return Math.max(0, keys.reduce((s, k) => s + (ref.g[k] || 0) - (a.g[k] || 0), 0)) * secs / age;
 }
-const cum = (g, keys) => keys.reduce((s, k) => s + ((g && g[k]) || 0), 0);
+// dolasci 30 min po pojedinacnom refereru: {ime: broj} ili null dok nema ~10 min redova
+function refArrivals() {
+  const L = S.last, rNow = L && L.refs ? L : S.rows.slice().reverse().find(x => x.refs), rA = rNow && S.rows.find(x => x.refs && x.at >= rNow.at - 1830);
+  if (!rNow || !rA || rA === rNow || rNow.at - rA.at < 600) return null;
+  const f = 1800 / (rNow.at - rA.at), out = {};
+  for (const n of Object.keys(rNow.refs)) out[n] = Math.max(0, rNow.refs[n] - (rA.refs[n] || 0)) * f;
+  return out;
+}
 function pill(dev, thr = 0.10) {
   if (dev == null || !isFinite(dev)) return '<span class="dl none">—</span>';
   const cls = dev >= thr ? 'up' : dev <= -thr ? 'down' : 'flat';
   return `<span class="dl ${cls}">${dev > 0 ? '+' : ''}${P(dev * 100, Math.abs(dev) < .1 ? 1 : 0)}</span>`;
 }
+const pp = (a, b) => a == null || b == null ? '' : `<span class="dl ${a - b >= .01 ? 'up' : a - b <= -.01 ? 'down' : 'flat'}">${a > b ? '+' : ''}${((a - b) * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 }).replace('-', '−')} pp</span>`;
+const hOut = e => e && e.h > 0 && e.k != null ? e.k / e.h : null;
+const histDays = n => { const out = []; for (let i = n; i >= 1; i--) { const d = addDays(S.today, -i), e = H[d]; if (e && !e.x && e.c != null) out.push([d, e]); } return out; };
 
 // ---------------------------------------------------------------- crtanje
-function svgEl(w, h) { return `<svg class="ch" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img">`; }
+const svgEl = (w, h) => `<svg class="ch" viewBox="0 0 ${w} ${h}" role="img">`;
 function lineChart(el, series, o) {
-  const W = 320, H = o.h || 96, pl = 2, pr = 2, pt = 6, pb = o.xl ? 14 : 4;
+  const W = 320, H_ = o.h || 96, pl = 2, pr = 2, pt = 6, pb = o.xl ? 14 : 4;
   const all = series.flatMap(s => s.pts);
   if (all.length < 2) { el.innerHTML = ''; return false; }
   const x0 = o.x0, x1 = o.x1, y1 = Math.max(...all.map(p => p[1])) * 1.05 || 1, y0 = o.y0 != null ? o.y0 : Math.min(...all.map(p => p[1]));
-  const X = v => pl + (v - x0) / (x1 - x0 || 1) * (W - pl - pr), Y = v => H - pb - (v - y0) / (y1 - y0 || 1) * (H - pt - pb);
-  let out = svgEl(W, H);
-  for (const t of (o.grid || [])) out += `<line x1="${X(t)}" x2="${X(t)}" y1="${pt}" y2="${H - pb}" stroke="var(--grid)"/>` + (o.xl ? `<text x="${X(t)}" y="${H - 3}" text-anchor="middle">${o.xl(t)}</text>` : '');
+  const X = v => pl + (v - x0) / (x1 - x0 || 1) * (W - pl - pr), Y = v => H_ - pb - (v - y0) / (y1 - y0 || 1) * (H_ - pt - pb);
+  let out = svgEl(W, H_);
+  for (const t of (o.grid || [])) out += `<line x1="${X(t)}" x2="${X(t)}" y1="${pt}" y2="${H_ - pb}" stroke="var(--grid)"/>` + (o.xl ? `<text x="${X(t)}" y="${H_ - 3}" text-anchor="middle">${o.xl(t)}</text>` : '');
   for (const s of series) {
     if (s.pts.length < 2) continue;
     const d = s.pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join('');
-    if (s.fill) out += `<path d="${d}L${X(s.pts[s.pts.length - 1][0]).toFixed(1)} ${H - pb}L${X(s.pts[0][0]).toFixed(1)} ${H - pb}Z" fill="${s.color}" opacity=".14"/>`;
-    out += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w || 2}" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+    if (s.fill) out += `<path d="${d}L${X(s.pts[s.pts.length - 1][0]).toFixed(1)} ${H_ - pb}L${X(s.pts[0][0]).toFixed(1)} ${H_ - pb}Z" fill="${s.color}" opacity=".14"/>`;
+    out += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w || 2}"${s.dash ? ` stroke-dasharray="${s.dash}"` : ''} stroke-linejoin="round"/>`;
   }
+  if (o.top) out += `<text x="${pl + 2}" y="${pt + 8}">${o.top(y1 / 1.05)}</text>`;
   el.innerHTML = out + '</svg>';
   return true;
 }
-function barsChart(el, bins) {
-  const W = 320, H = 92, pb = 14, pt = 4, n = bins.length, step = W / n, bw = step * .68;
+function stackBars(el, bins) {
+  const W = 320, H_ = 92, pb = 14, pt = 4, n = bins.length, step = W / n, bw = step * .68;
   const mx = Math.max(1, ...bins.map(b => b.v ? b.v.reduce((a, c) => a + c, 0) : 0));
   const col = ['var(--s-google)', 'var(--s-trade)', 'var(--s-direct)'];
-  let out = svgEl(W, H);
+  let out = svgEl(W, H_);
   bins.forEach((b, i) => {
     if (!b.v) return;
-    let y = H - pb;
-    b.v.forEach((v, j) => { const h = v / mx * (H - pb - pt); y -= h; out += `<rect x="${(i * step + (step - bw) / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" fill="${col[j]}"/>`; });
-    if (i % 3 === 2 || i === n - 1) out += `<text x="${(i * step + step / 2).toFixed(1)}" y="${H - 3}" text-anchor="middle">${b.l}</text>`;
+    let y = H_ - pb;
+    b.v.forEach((v, j) => { const h = v / mx * (H_ - pb - pt); y -= h; out += `<rect x="${(i * step + (step - bw) / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" fill="${col[j]}"/>`; });
+    if (i % 3 === 2 || i === n - 1) out += `<text x="${(i * step + step / 2).toFixed(1)}" y="${H_ - 3}" text-anchor="middle">${b.l}</text>`;
   });
   el.innerHTML = out + '</svg>';
 }
+// stubici po danu: items = [{v, l (oznaka ispod ili ''), c (boja), o (obris = nezavrsen dan)}]
+function dayBars(el, items, o = {}) {
+  const W = 320, H_ = o.h || 110, pb = 14, pt = 12, n = items.length;
+  if (!n) { el.innerHTML = ''; return; }
+  const step = W / n, bw = Math.max(1, step * (n > 60 ? .9 : .7)), mx = Math.max(1, ...items.map(b => b.v || 0)) * 1.04;
+  let out = svgEl(W, H_);
+  if (o.line != null) { const y = H_ - pb - o.line / mx * (H_ - pb - pt); out += `<line x1="0" x2="${W}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--s-bing)" stroke-dasharray="3 3" opacity=".7"/>`; }
+  items.forEach((b, i) => {
+    if (b.v == null) return;
+    const h = b.v / mx * (H_ - pb - pt), x = i * step + (step - bw) / 2;
+    out += b.o ? `<rect x="${x.toFixed(1)}" y="${(H_ - pb - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="none" stroke="${b.c}" stroke-width="1"/>`
+               : `<rect x="${x.toFixed(1)}" y="${(H_ - pb - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${b.c}"/>`;
+    if (b.l) out += `<text x="${(i * step + step / 2).toFixed(1)}" y="${H_ - 3}" text-anchor="middle">${b.l}</text>`;
+  });
+  out += `<text x="2" y="9">${K(mx / 1.04)}</text>`;
+  el.innerHTML = out + '</svg>';
+}
+const sw = c => `<span class="sw" style="background:var(--s-${c})"></span>`;
 
 function render() {
-  const cfg = !!CFG;
-  const noData = cfg && S.err && !S.last;
+  const cfg = !!CFG, noData = cfg && S.err && !S.last;
   $('#setup').hidden = cfg && !S.showSetup && !noData; $('#app').hidden = !cfg || S.showSetup || !S.last;
   if (noData && !$('#inU').value) $('#inU').value = CFG.u;
-  $('#btnForget').hidden = !cfg; $('#btnBack').hidden = !cfg;
+  $('#btnForget').hidden = !cfg; $('#btnBack').hidden = !cfg || noData;
+  const nPc = Object.values(H).filter(e => e.src === 'pc').length, nAll = Object.values(H).filter(e => !e.x && e.c != null).length;
+  $('#histInfo').textContent = cfg ? `Istorija na ovom telefonu: ${nAll} dana${nPc ? ` (${nPc} uvezeno sa računara)` : ' — starije dane uvozi računar: python stats/phone_setup.py --history'}.` : '';
+  const note = $('#note'); note.hidden = !NOTE; if (NOTE) note.textContent = NOTE;
   const msg = $('#msg');
   if (S.err && cfg) {
     msg.hidden = false; msg.className = 'msg';
@@ -444,67 +671,160 @@ function render() {
   if (S.hold) L = Object.assign({}, L, { tsm: 1439 });      // poredjenja sa prethodnim danom = kraj dana
   const d = new Date(S.today + 'T12:00:00');
   $('#hDate').textContent = d.toLocaleDateString('sr-Latn', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hms(L.at).slice(0, 5);
-  // online: medijana poslednja 3 reda (broj skace +-1 % po minutu)
   const ons = S.rows.slice(-3).map(x => x.on).filter(x => x != null).sort((a, b) => a - b);
-  const on = ons.length ? ons[ons.length >> 1] : L.on;
-  $('#onN').textContent = N(on); $('#oV').textContent = N(on); $('#onPill').classList.toggle('off', age > 300 || on == null);
-  // posete
-  const Y = S.yday, yAt = valAt(Y, L.tsm, cOf(Y)), yEnd = Y ? (k => k.length ? cOf(Y)(Y.s[Math.max(...k)]) : null)(Object.keys(Y.s).map(Number)) : null;
-  const cNow = L.uv != null ? L.uv : L.u * kOf(S.day), cEst = L.uv == null;
+  const on = ons.length ? ons[ons.length >> 1] : L.on;     // medijana poslednja 3 reda
+  $('#onN').textContent = N(on); $('#onPill').classList.toggle('off', age > 300 || on == null);
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab));
+  $('#tSada').hidden = S.tab !== 'sada'; $('#tDan').hidden = S.tab !== 'dan'; $('#tDani').hidden = S.tab !== 'dani';
+  const ctx = { L, on, cNow: L.uv != null ? L.uv : L.u * kOf(S.day), cEst: L.uv == null };
+  if (S.tab === 'sada') renderSada(ctx); else if (S.tab === 'dan') renderDan(ctx); else renderDani(ctx);
+  $('#foot').textContent = `osvežava se svakog minuta dok je strana otvorena · poslednji red ${hms(L.at)}`;
+}
+
+function renderSada({ L, on, cNow, cEst }) {
+  const Y = S.yday, yAt = valAt(Y, L.tsm, cOf(Y)), yb = lastBin(Y), yEnd = (H[prevDate(S.today)] || {}).c || (yb ? cOf(Y)(yb) : null);
+  $('#oV').textContent = N(on);
   $('#cV').textContent = (cEst ? '≈ ' : '') + N(cNow);
   $('#cMeta').textContent = 'red ' + hms(L.at);
   $('#cDl').innerHTML = yAt ? pill(cNow / yAt - 1, 0.05) : '';
-  $('#cSub').innerHTML = Y && Y.done ? (yAt ? `juče u ovo vreme <b class="num">${N(yAt)}</b>` : 'juče u ovo vreme: nema reda') + (yEnd ? ` · juče ukupno <b class="num">${N(yEnd)}</b>` : '') : (Y ? '' : 'juče: učitavam…');
-  if (Y && Y.done && !Object.keys(Y.s).length) $('#cSub').textContent = 'juče: izvor nema podatke za taj dan';
+  $('#cSub').innerHTML = (yAt ? `juče u ovo vreme <b class="num">${N(yAt)}</b>` : '') + (yEnd ? `${yAt ? ' · ' : ''}juče ukupno <b class="num">${N(yEnd)}</b>` : '') || (Y && Y.done ? 'juče: izvor nema podatke za taj dan' : 'juče: učitavam…');
   const nb = L.u - (L.g.bots || 0);
   $('#cQ').innerHTML = (L.nw != null && nb > 0 ? `novi <b class="num">${P(100 * L.nw / nb, 0)}</b> · bounce <b class="num">${P(100 * L.bo / nb, 0)}</b>` : '') +
     (cEst ? '<br>≈ = procena iz zbira po izvoru: server je danas restartovan, pa izvor ne daje tačan broj posetilaca bez duplikata' : '');
-  const pts = day => day ? Object.values(day.s).map(x => [x[0], cOf(day)(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
-  const has = lineChart($('#chDay'), [{ pts: pts(Y), color: 'var(--s-tail)', w: 1.5 }, { pts: pts(S.day), color: 'var(--gold)', w: 2.2, fill: true }],
-                        { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110 });
-  $('#dayLeg').hidden = !has;
   // histats skala: dolasci u prozoru x k po izvoru (iste konstante kao na racunaru)
-  const hk = CFG.hk || {}, hw = CFG.hw || 12, allKeys = SEARCH.concat(tableRows().part, ['direct', 'bots']);
+  const hk = CFG.hk || {}, hw = CFG.hw || 12, AK = allKeys();
   let hist = hk._total ? 0 : null;
-  if (hist != null) for (const k of allKeys) { const v = arrivals([k], hw); if (v == null) { hist = null; break; } hist += v * (hk[k] || hk._total); }
+  if (hist != null) for (const k of AK) { const v = arrivals([k], hw); if (v == null) { hist = null; break; } hist += v * (hk[k] || hk._total); }
   $('#oSub').innerHTML = (hist != null ? `≈ histats „Users online" <b class="num">${N(hist)}</b>` : '') +
     (L.rst ? `${hist != null ? '<br>' : ''}server je restartovan — ovaj broj se puni oko sat vremena` : '');
   const t1 = L.at, onPts = S.rows.filter(x => x.on != null && x.at >= t1 - 7200).map(x => [x.at, x.on]);
   const mn = onPts.length ? Math.min(...onPts.map(p => p[1])) : 0, mxo = onPts.length ? Math.max(...onPts.map(p => p[1])) : 0;
   lineChart($('#chOn'), [{ pts: onPts, color: 'var(--green)', w: 2, fill: true }], { x0: t1 - 7200, x1: t1, y0: Math.max(0, mn - (mxo - mn) - 5), h: 64 });
   // izvori
-  const T = tableRows();
-  $('#sMeta').textContent = 'novi jedinstveni po refereru';
-  const tr = (cls, sw, label, c, a5, a30, dev) => `<tr class="${cls}"><td>${sw ? `<span class="sw" style="background:var(--s-${sw})"></span>` : ''}${esc(label)}</td><td class="num">${N(c)}</td><td class="num">${a5 == null ? '·' : N(a5)}</td><td class="num mt">${a30 == null ? '·' : N(a30)}</td><td>${dev}</td></tr>`;
-  const yG = keys => { const v = valAt(Y, L.tsm, x => x[6] ? cum(x[6], keys) : null); return v; };
+  const tr = (key, cls, c, label, v, a5, a30, dev) => `<tr class="${cls}${key ? ' tap' : ''}"${key ? ` data-k="${key}"` : ''}><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${N(v)}</td><td class="num">${a5 == null ? '·' : N(a5)}</td><td class="num mt">${a30 == null ? '·' : N(a30)}</td><td>${dev}</td></tr>`;
+  const yG = keys => valAt(Y, L.tsm, x => x[6] ? cum(x[6], keys) : null);
   let html = '';
-  for (const [key, label, cls, keys, sw] of T.rows) {
-    const c = cum(L.g, keys), y = yG(keys);
-    html += tr(cls, sw, label, c, arrivals(keys, 5), arrivals(keys, 30), pill(y ? c / y - 1 : null));
+  for (const [key, label, cls, keys, c] of tableRows()) {
+    const v = cum(L.g, keys), y = yG(keys);
+    html += tr(key, cls, c, label, v, arrivals(keys, 5), arrivals(keys, 30), pill(y ? v / y - 1 : null));
   }
-  $('#sBody').innerHTML = html + tr('total', '', 'ukupno', L.u, arrivals(allKeys, 5), arrivals(allKeys, 30), '');
+  $('#sBody').innerHTML = html + tr('', 'total', '', 'ukupno', L.u, arrivals(AK, 5), arrivals(AK, 30), '');
   // stubici 12 x 10 min: pretrazivaci / partneri / direktno
-  const bins = [];
+  const bins = [], part = partKeys();
   for (let j = 0; j < 12; j++) {
-    const e = L.at - (11 - j) * 600, a = snapAt(e - 600), b = snapAt(e);
-    const lbl = new Date(e * 1000).toTimeString().slice(0, 5);
+    const e = L.at - (11 - j) * 600, a = snapAt(e - 600), b = snapAt(e), lbl = new Date(e * 1000).toTimeString().slice(0, 5);
     if (a && b && b.at > a.at && (e - 600) - a.at < 300 && e - b.at < 300) {
       const f = 600 / (b.at - a.at);
-      bins.push({ l: lbl, v: [SEARCH, T.part, ['direct']].map(keys => Math.max(0, cum(b.g, keys) - cum(a.g, keys)) * f) });
+      bins.push({ l: lbl, v: [SEARCH, part, ['direct']].map(keys => Math.max(0, cum(b.g, keys) - cum(a.g, keys)) * f) });
     } else bins.push({ l: lbl, v: null });
   }
-  barsChart($('#chBars'), bins);
-  // referenti: dolasci 30 min po pojedinacnom refereru
-  const rNow = L.refs ? L : S.rows.slice().reverse().find(x => x.refs), rA = rNow && S.rows.find(x => x.refs && x.at >= rNow.at - 1830);
-  let rl = '';
-  if (rNow && rA && rA !== rNow && rNow.at - rA.at >= 600) {
-    const f = 1800 / (rNow.at - rA.at);
-    rl = Object.keys(rNow.refs).filter(n => n !== 'unknown' && !n.startsWith('bot-')).map(n => [n, (rNow.refs[n] - (rA.refs[n] || 0)) * f, rNow.refs[n]])
-      .filter(x => x[1] >= 1).sort((a, b) => b[1] - a[1]).slice(0, 12)
-      .map(x => `<li><span class="nm">${esc(x[0])}</span><span class="v num">${N(x[1])}</span><span class="t num">${N(x[2])}</span></li>`).join('');
-  }
+  stackBars($('#chBars'), bins);
+  const ra = refArrivals(), nowRefs = L.refs || {};
+  const rl = ra ? Object.keys(ra).filter(n => n !== 'unknown' && !n.startsWith('bot-') && ra[n] >= 1).sort((a, b) => ra[b] - ra[a]).slice(0, 12)
+    .map(n => `<li><span class="nm">${esc(n)}</span><span class="v num">${N(ra[n])}</span><span class="t num">${N(nowRefs[n])}</span></li>`).join('') : '';
   $('#rList').innerHTML = rl || '<li><span class="nm" style="color:var(--text-3)">skuplja se (potrebno ~10 min redova)</span></li>';
-  $('#foot').textContent = `osvežava se svakog minuta dok je strana otvorena · poslednji red ${hms(L.at)}`;
+}
+
+function renderDan({ L, cNow, cEst }) {
+  const Y = S.yday, Wd = S.wday, T = S.day;
+  const pts = day => day ? Object.values(day.s).map(x => [x[0], cOf(day)(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
+  const pW = pts(Wd), pY = pts(Y);
+  lineChart($('#chDay'), [{ pts: pW, color: 'var(--s-bing)', w: 1.2, dash: '3 3' }, { pts: pY, color: 'var(--s-tail)', w: 1.5 }, { pts: pts(T), color: 'var(--gold)', w: 2.2, fill: true }],
+            { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 130, top: K });
+  $('#dayLeg').innerHTML = `<span>${sw('google')}danas</span>` + (pY.length > 1 ? `<span>${sw('tail')}juče</span>` : '') + (pW.length > 1 ? `<span>${sw('bing')}${DOW[new Date(S.today + 'T12:00:00Z').getUTCDay()]} prošle ned.</span>` : '');
+  $('#dMeta').textContent = (cEst ? '≈ ' : '') + N(cNow) + ' do ' + hms(L.at).slice(0, 5);
+  const yAt = valAt(Y, L.tsm, cOf(Y)), wAt = valAt(Wd, L.tsm, cOf(Wd)), e7 = H[addDays(S.today, -7)], eY = H[prevDate(S.today)];
+  $('#dSub').innerHTML = [yAt ? `juče u ovo vreme <b class="num">${N(yAt)}</b> ${pill(cNow / yAt - 1, .05)}` : '', wAt ? `pre 7 dana u ovo vreme <b class="num">${N(wAt)}</b> ${pill(cNow / wAt - 1, .05)}` : '',
+    eY && eY.c ? `juče ukupno <b class="num">${N(eY.c)}</b>` : '', e7 && e7.c ? `pre 7 dana ukupno <b class="num">${N(e7.c)}</b>` : ''].filter(Boolean).join('<br>') || 'poređenja stižu kad izvor ima jučerašnji dan';
+  // po satu: prirast poseta u satu (tekuci sat = do sada)
+  const hourOf = (day, h, upto) => { const a = valAt(day, 60 * h, cOf(day)), b = valAt(day, Math.min(60 * (h + 1), upto), cOf(day)); return a == null || b == null ? null : Math.max(0, b - a); };
+  const curH = Math.floor(L.tsm / 60), rows = [];
+  for (let h = curH; h >= 0; h--) {
+    const t = hourOf(T, h, L.tsm), y = hourOf(Y, h, 1440), part = h === curH && L.tsm % 60 !== 59;
+    const yCmp = part ? hourOf(Y, h, L.tsm) : y;
+    rows.push(`<tr${part ? ' class="lead"' : ''}><td>${String(h).padStart(2, '0')}–${String(h + 1).padStart(2, '0')}${part ? ' <span class="mt" style="font-weight:400">do sada</span>' : ''}</td><td class="num">${N(t)}</td><td class="num mt">${N(y)}</td><td>${pill(t != null && yCmp ? t / yCmp - 1 : null)}</td></tr>`);
+  }
+  $('#hBody').innerHTML = (S.allHours ? rows : rows.slice(0, 6)).join('');
+  $('#btnHours').hidden = rows.length <= 6; $('#btnHours').textContent = S.allHours ? 'samo poslednjih 6 sati' : `svih ${rows.length} sati`;
+  // kvalitet po izvoru
+  const D = detail(L), q = D ? D.q : null;
+  const qrow = (cls, c, label, keys) => {
+    const a = keys.reduce((s, k) => { const x = q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]);
+    const f = i => a[5] ? P(100 * a[i] / a[5], 0) : '—';
+    return `<tr class="${cls}"><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${f(0)}</td><td class="num">${f(1)}</td><td class="num">${f(2)}</td><td class="num">${a[5] && a[3] <= a[5] ? P(100 * a[3] / a[5], a[3] / a[5] < .1 ? 1 : 0) : '—'}</td></tr>`;
+  };
+  $('#qBody').innerHTML = q ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => qrow(cls, c, label, keys)).join('') + qrow('total', '', 'sve bez botova', allKeys().filter(k => k !== 'bots')) : '<tr><td colspan="5" class="mt">stiže sa sledećim redom</td></tr>';
+  // trade: out % = out klikovi / referisane posete (bez direktnih i botova) — ista mera kao na racunaru
+  const ref = L.u - (L.g.bots || 0) - (L.g.direct || 0), out = ref > 0 ? L.k / ref : null, usual = median(histDays(7).map(x => hOut(x[1])));
+  $('#tV').textContent = out != null ? P(out * 100) : '—';
+  $('#tDl').innerHTML = pp(out, usual);
+  $('#tSub').innerHTML = `<b class="num">${N(L.k)}</b> out klikova na <b class="num">${N(ref)}</b> referisanih` + (usual != null ? ` · uobičajeno <b class="num">${P(usual * 100)}</b> (medijana 7 dana, kraj dana)` : '');
+  const ra = refArrivals(), pk = partKeys();
+  const partners = D ? D.refs.filter(x => pk.includes(x[1])) : [];
+  $('#tBody').innerHTML = partners.slice(0, 15).map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[2])}</td><td class="num mt">${ra ? N(ra[x[0]] || 0) : '·'}</td><td class="num">${N(x[4])}</td><td class="num mt">${x[2] ? P(100 * x[4] / x[2], 0) : '—'}</td></tr>`).join('') +
+    (partners.length > 15 ? `<tr class="dim"><td>još ${partners.length - 15} partnera</td><td class="num">${N(partners.slice(15).reduce((s, x) => s + x[2], 0))}</td><td></td><td class="num">${N(partners.slice(15).reduce((s, x) => s + x[4], 0))}</td><td></td></tr>` : '') || '<tr><td colspan="5" class="mt">stiže sa sledećim redom</td></tr>';
+  // botovi: zahtevi (raw) po imenu
+  const bNow = D ? D.bots : {}, hd = histDays(14), bY = (eY && eY.b) || {};
+  const names = Object.keys(bNow).sort((a, b) => bNow[b] - bNow[a]);
+  $('#bBody').innerHTML = names.map(n => `<tr><td>${esc(botName(n))}</td><td class="num">${N(bNow[n])}</td><td class="num mt">${bY[n] != null ? N(bY[n]) : '—'}</td><td class="num mt">${N(median(hd.slice(-7).map(x => x[1].b ? x[1].b[n] : null)))}</td></tr>`).join('') || '<tr><td colspan="4" class="mt">stiže sa sledećim redom</td></tr>';
+  const top = names[0], bd = top ? hd.filter(x => x[1].b && x[1].b[top] != null) : [];
+  dayBars($('#chBots'), bd.length > 1 ? bd.map(([d, e], i) => ({ v: e.b[top], c: 'var(--s-tail)', l: i === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v: bNow[top], c: 'var(--gold)', o: true, l: 'danas' }]) : [], { h: 80 });
+  $('#bSub').textContent = bd.length > 1 ? `${botName(top)} po danu (poslednjih ${bd.length} dana + danas do sada)` : 'trend po danu stiže kad se skupi istorija';
+}
+
+function renderDani({ L, cNow, cEst }) {
+  document.querySelectorAll('#rng button').forEach(b => b.classList.toggle('on', +b.dataset.n === S.rng));
+  const hd = histDays(S.rng), n = hd.length;
+  const col = e => (e.f || '').includes('bot') || (e.f || '').includes('outage') ? 'var(--s-tail)' : 'var(--gold)';
+  const lblEvery = n <= 14 ? 3 : n <= 30 ? 7 : n <= 90 ? 21 : 60;
+  dayBars($('#chDays'), hd.map(([d, e], i) => ({ v: e.c, c: col(e), l: (n - 1 - i) % lblEvery === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v: cNow, c: 'var(--gold)', o: true, l: '' }]),
+          { h: 130, line: median(hd.map(x => x[1].c)) });
+  const best = hd.reduce((a, x) => !a || x[1].c > a[1].c ? x : a, null), anyBot = hd.some(x => (x[1].f || '').includes('bot'));
+  $('#daysSub').innerHTML = n ? `${n} dana · medijana <b class="num">${N(median(hd.map(x => x[1].c)))}</b> · najbolji <b class="num">${N(best[1].c)}</b> (${dstr(best[0])})` + (anyBot ? ' · sivo = dan sa oznakom (bot / ispad)' : '') + ' · obris = danas do sada' : 'istorija se skuplja';
+  const row = (d, e, today) => {
+    const w = H[addDays(d, -7)], g = e.g ? e.g.google : null, o = hOut(e);
+    return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}</td><td class="num">${e.e || today && cEst ? '≈ ' : ''}${N(e.c)}</td><td>${today ? '<span class="dl none">u toku</span>' : pill(w && w.c ? e.c / w.c - 1 : null, .05)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td class="num mt">${o != null ? P(o * 100, 0) : '—'}</td></tr>`;
+  };
+  const tE = H[S.today];
+  $('#dBody').innerHTML = (tE ? row(S.today, Object.assign({}, tE, { c: Math.round(cNow) }), true) : '') + hd.slice().reverse().slice(0, S.rng > 90 ? 120 : S.rng).map(([d, e]) => row(d, e, false)).join('');
+  const nPc = Object.values(H).filter(e => e.src === 'pc').length, pend = (() => { let c = 0; for (let i = 2; i <= BACK_DAYS; i++) { const e = H[addDays(S.today, -i)]; if (!e || e.p) c++; } return c; })();
+  $('#daysNote').textContent = (nPc ? '' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ') + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
+}
+
+// ---------------------------------------------------------------- listovi (izvor, dan)
+function openSheet(title, html) { $('#shTitle').textContent = title; $('#shBody').innerHTML = html; const s = $('#sheet'); if (!s.open) s.showModal(); s.scrollTop = 0; }
+function fill(id, fn) { const el = document.getElementById(id); if (el) fn(el); }
+function openSource(key) {
+  const def = tableRows().find(r => r[0] === key); if (!def || !S.last) return;
+  const [, label, , keys, c] = def, L = S.last, D = detail(L), color = `var(--s-${c})`;
+  const pts = day => day ? Object.values(day.s).filter(x => x[6]).map(x => [x[0], cum(x[6], keys)]).sort((a, b) => a[0] - b[0]) : [];
+  const v = cum(L.g, keys), y = valAt(S.yday, L.tsm, x => x[6] ? cum(x[6], keys) : null), hd = histDays(14).filter(x => x[1].g);
+  const a = D ? keys.reduce((s, k) => { const x = D.q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]) : null;
+  const ra = refArrivals(), list = D ? D.refs.filter(x => keys.includes(x[1])) : [];
+  openSheet(label, `<div class="row"><div class="mid num">${N(v)}</div>${pill(y ? v / y - 1 : null)}</div>
+    <div class="sub">danas do ${hms(L.at).slice(0, 5)}${y ? ` · juče u ovo vreme <b class="num">${N(y)}</b>` : ''} · 5 min <b class="num">${N(arrivals(keys, 5))}</b> · 30 min <b class="num">${N(arrivals(keys, 30))}</b></div>
+    <h3>Tok dana</h3><div id="shDay"></div><div class="legend"><span><span class="sw" style="background:${color}"></span>danas</span><span>${sw('tail')}juče</span></div>
+    <h3>Po danu</h3><div id="shDays"></div>
+    ${a && a[5] ? `<h3>Kvalitet danas</h3><div class="kv"><div><span>novi</span><b class="num">${P(100 * a[0] / a[5], 0)}</b></div><div><span>bounce</span><b class="num">${P(100 * a[1] / a[5], 0)}</b></div><div><span>mobilni</span><b class="num">${P(100 * a[2] / a[5], 0)}</b></div><div><span>out klikovi</span><b class="num">${N(a[3])} · ${P(100 * a[3] / a[5], 0)}</b></div></div>` : ''}
+    ${list.length > 1 ? `<h3>Referenti u grupi (${list.length})</h3><table><colgroup><col><col class="w54"><col class="w44"><col class="w44"></colgroup><thead><tr><th>referer</th><th>danas</th><th>30 min</th><th>out</th></tr></thead><tbody>${list.slice(0, 25).map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[2])}</td><td class="num mt">${ra ? N(ra[x[0]] || 0) : '·'}</td><td class="num mt">${N(x[4])}</td></tr>`).join('')}</tbody></table>` : ''}`);
+  fill('shDay', el => lineChart(el, [{ pts: pts(S.yday), color: 'var(--s-tail)', w: 1.5 }, { pts: pts(S.day), color, w: 2.2, fill: true }], { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110, top: K }) || (el.innerHTML = '<div class="sub">kriva stiže kad se skupi više redova</div>'));
+  fill('shDays', el => hd.length ? dayBars(el, hd.map(([d, e], i) => ({ v: cum(e.g, keys), c: color, l: i === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v, c: color, o: true, l: 'danas' }]), { h: 90 }) : (el.innerHTML = '<div class="sub">istorija po izvoru se skuplja</div>'));
+}
+function openDay(d) {
+  const today = d === S.today, e = today && S.last ? Object.assign({}, H[d], { c: Math.round(S.last.uv != null ? S.last.uv : S.last.u * kOf(S.day)) }) : H[d];
+  if (!e) return;
+  const w = H[addDays(d, -7)], o = hOut(e), nb = e.nb || (e.u != null && e.g ? e.u - (e.g.bots || 0) : null), tot = e.g ? Object.keys(e.g).reduce((s, k) => s + (k === 'bots' ? 0 : e.g[k]), 0) : 0;
+  const kv = (l, v) => v ? `<div><span>${l}</span><b class="num">${v}</b></div>` : '';
+  const rows = e.g ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => { const v = cum(e.g, keys), wv = w && w.g ? cum(w.g, keys) : null; return `<tr class="${cls}"><td>${sw(c)}${esc(label)}</td><td class="num">${N(v)}</td><td class="num mt">${tot ? P(100 * v / tot, 0) : '—'}</td><td>${pill(wv ? v / wv - 1 : null)}</td></tr>`; }).join('') : '';
+  const day = today ? S.day : ls.get(LS.day(d)), pts = day ? Object.values(day.s).map(x => [x[0], cOf(day)(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
+  openSheet(today ? 'Danas (u toku)' : new Date(d + 'T12:00:00').toLocaleDateString('sr-Latn', { weekday: 'long', day: 'numeric', month: 'long' }),
+    `<div class="row"><div class="mid num">${e.e ? '≈ ' : ''}${N(e.c)}</div>${today ? '' : pill(w && w.c ? e.c / w.c - 1 : null, .05)}</div>
+    <div class="sub">${w && w.c ? `isti dan nedelju ranije <b class="num">${N(w.c)}</b>` : 'nema dana za poređenje nedelju ranije'}${(e.f || '') ? ` · oznaka: ${esc(e.f)}` : ''}${e.e ? ' · ≈ procena (server restartovan tog dana)' : ''}</div>
+    ${pts.length > 1 ? '<h3>Tok dana</h3><div id="shDay"></div>' : ''}
+    <div class="kv" style="margin-top:12px">${kv('out % (trade)', o != null ? P(o * 100) : '')}${kv('out klikovi', e.k != null ? N(e.k) : '')}${kv('novi', e.nw != null && nb ? P(100 * e.nw / nb, 0) : '')}${kv('bounce', e.bo != null && nb ? P(100 * e.bo / nb, 0) : '')}${kv('desktop / mobilni', e.cd != null && e.c ? `${P(100 * e.cd / e.c, 0)} / ${P(100 * e.cm / e.c, 0)}` : '')}${kv('Googlebot zahtevi', e.b && e.b['bot-googlebot'] != null ? N(e.b['bot-googlebot']) : '')}</div>
+    ${rows ? `<h3>Izvori</h3><table><colgroup><col><col class="w56"><col class="w44"><col class="w62"></colgroup><thead><tr><th>izvor</th><th>posete</th><th>udeo</th><th>vs ned.</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="sub">izvori po danu postoje za poslednjih ~90 dana</div>'}
+    ${e.r && e.r.length ? `<h3>Najjači referenti</h3><table><colgroup><col><col class="w56"><col class="w44"></colgroup><thead><tr><th>referer</th><th>posete</th><th>out</th></tr></thead><tbody>${e.r.map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[1])}</td><td class="num mt">${N(x[2])}</td></tr>`).join('')}</tbody></table>` : ''}`);
+  fill('shDay', el => lineChart(el, [{ pts, color: 'var(--gold)', w: 2.2, fill: true }], { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110, top: K }));
 }
 
 // ---------------------------------------------------------------- dogadjaji
@@ -519,15 +839,26 @@ $('#btnSave').addEventListener('click', () => {
   S.showSetup = false; S.today = null; S.err = null; buildRules(); render(); load(true);
 });
 $('#btnForget').addEventListener('click', () => {
-  if (!confirm('Obrisati adresu, ključ i sačuvane dane sa ovog uređaja?')) return;
+  if (!confirm('Obrisati adresu, ključ, istoriju i sačuvane dane sa ovog uređaja?')) return;
   try { Object.keys(localStorage).filter(k => k.startsWith('puls.m.') && k !== LS.theme).forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  CFG = null; S.today = null; S.last = null; S.rows = []; S.showSetup = false; render();
+  CFG = null; H = {}; S.today = null; S.last = null; S.rows = []; S.showSetup = false; render();
 });
+$('#tabs').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.tab = b.dataset.t; ls.set(LS.tab, S.tab); NOTE = null; render(); scrollTo(0, 0); });
+$('#rng').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.rng = +b.dataset.n; ls.set(LS.rng, S.rng); render(); });
+$('#btnHours').addEventListener('click', () => { S.allHours = !S.allHours; render(); });
+$('#sBody').addEventListener('click', ev => { const tr = ev.target.closest('tr[data-k]'); if (tr) openSource(tr.dataset.k); });
+$('#dBody').addEventListener('click', ev => { const tr = ev.target.closest('tr[data-d]'); if (tr) openDay(tr.dataset.d); });
+$('#shClose').addEventListener('click', () => $('#sheet').close());
+$('#sheet').addEventListener('click', ev => { if (ev.target === $('#sheet')) $('#sheet').close(); });
+addEventListener('hashchange', () => { if (/[#&](s|h)=/.test(location.hash)) location.reload(); });   // link za podesavanje/uvoz otvoren u vec otvorenoj strani
 document.addEventListener('visibilitychange', () => { if (!document.hidden && CFG && Date.now() >= S.next - 30000) load(false); });
 setInterval(() => { if (CFG && !document.hidden && Date.now() >= S.next) load(false); }, 5000);
-setInterval(() => { if (S.last) render(); }, 30000);
-buildRules(); render();
-if (CFG) load(true);
+setInterval(() => { if (S.last && !$('#sheet').open) render(); }, 30000);
+(async function start() {
+  if (IMPORT) { await importHist(IMPORT); if (S.tab !== 'dani') { S.tab = 'dani'; } }
+  buildRules(); render();
+  if (CFG) load(true);
+})();
 </script>
 </body>
 </html>
