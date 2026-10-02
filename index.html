@@ -15,6 +15,7 @@
   --gold:#d4a542;--green:#4cc38a;--red:#e5484d;--amber:#f5b53f;--grid:rgba(255,255,255,.07);
   --s-google:#b98a2b;--s-bing:#3987e5;--s-duckduckgo:#d95926;--s-yahoo:#199e70;--s-direct:#9085e9;--s-x:#d55181;--s-trade:#2a9db8;--s-tail:#6b7280;
   --up-ink:#5fd39c;--down-ink:#ff7a7d;--up-soft:rgba(76,195,138,.13);--down-soft:rgba(229,72,77,.15);
+  --up:#4cc38a;--down:#e5484d;--up-on:#06150e;--down-on:#fff;--blue:#7ea8ff;
   --ff:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
 :root[data-theme="light"]{
@@ -22,6 +23,7 @@
   --gold:#b8891f;--green:#1f9d63;--red:#d4383d;--amber:#c98a12;--grid:rgba(0,0,0,.07);
   --s-google:#b8891f;--s-bing:#2a78d6;--s-duckduckgo:#eb6834;--s-yahoo:#00a383;--s-direct:#4a3aa7;--s-x:#d55181;--s-trade:#0093b8;--s-tail:#9aa0ab;
   --up-ink:#0f7a49;--down-ink:#c02a30;--up-soft:rgba(31,157,99,.12);--down-soft:rgba(212,56,61,.11);
+  --up:#1f9d63;--down:#c62f34;--up-on:#06150e;--down-on:#fff;--blue:#3b6fd6;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -53,10 +55,14 @@ button{font:inherit;color:inherit}
 .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sub{color:var(--text-2);font-size:12.5px;margin-top:6px}
 .sub b{color:var(--text);font-weight:600}
-.dl{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+/* smer + znacaj, isto kao na racunaru: strelica, znak i boja = smer; pun pil = razlika preko praga */
+.dl{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:2px 6px;font-size:11.5px;font-weight:700;line-height:1.35;white-space:nowrap;font-variant-numeric:tabular-nums;vertical-align:middle}
+.dl i{font-style:normal;font-size:7.5px;line-height:1}
 .dl.up{background:var(--up-soft);color:var(--up-ink)}
 .dl.down{background:var(--down-soft);color:var(--down-ink)}
-.dl.flat{background:var(--card-2);color:var(--text-2)}
+.dl.strong.up{background:var(--up);color:var(--up-on)}
+.dl.strong.down{background:var(--down);color:var(--down-on)}
+.dl.flat{background:var(--card-2);color:var(--text-2);font-weight:500}
 .dl.none{color:var(--text-3);font-weight:400;padding:2px 0}
 svg.ch{display:block;width:100%;height:auto;margin-top:10px}
 svg.ch text{fill:var(--text-3);font:10px var(--ff)}
@@ -72,7 +78,12 @@ tr.tap{cursor:pointer}
 tr.dim td{color:var(--text-3)}
 td.mt{color:var(--text-2)}
 .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
-.w54{width:54px}.w38{width:38px}.w44{width:44px}.w56{width:56px}.w48{width:48px}.w62{width:62px}.w50{width:50px}
+.ck{display:inline-block;width:11px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle;background:var(--gold)}
+.ck.y{background:var(--s-tail)}.ck.w1{background:var(--blue)}.ck.w2{background:repeating-linear-gradient(90deg,var(--blue) 0 3px,transparent 3px 6px)}
+.dt{color:var(--text-3);font-size:11px;font-weight:400}
+.fl{color:var(--blue);white-space:nowrap}
+.cv{margin-right:4px}
+.w108{width:108px}.w54{width:54px}.w38{width:38px}.w44{width:44px}.w56{width:56px}.w48{width:48px}.w62{width:62px}.w50{width:50px}
 .refs{list-style:none;margin:0;padding:0}
 .refs li{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
 .refs li:first-child{border-top:0}
@@ -141,7 +152,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <section class="card">
       <div class="ct"><h2>Izvori</h2><span>dodir na red = detalji</span></div>
       <table>
-        <colgroup><col><col class="w54"><col class="w38"><col class="w44"><col class="w56"></colgroup>
+        <colgroup><col><col class="w54"><col class="w38"><col class="w44"><col class="w62"></colgroup>
         <thead><tr><th>izvor</th><th>do sada</th><th>5 min</th><th>30 min</th><th>vs juče</th></tr></thead>
         <tbody id="sBody"></tbody>
       </table>
@@ -159,16 +170,31 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 
   <div id="tDan" hidden>
     <section class="card">
-      <div class="ct"><h2>Tok dana</h2><span id="dMeta"></span></div>
-      <div id="chDay"></div>
-      <div class="legend" id="dayLeg"></div>
-      <div class="sub" id="dSub"></div>
+      <div class="ct"><h2>Poređenje dana</h2><span>pil = danas prema tom danu</span></div>
+      <table>
+        <colgroup><col><col class="w108"><col class="w62"></colgroup>
+        <thead><tr><th>posete</th><th id="kAtC">do —</th><th>ceo dan</th></tr></thead>
+        <tbody id="kC"></tbody>
+      </table>
+      <table style="margin-top:14px">
+        <colgroup><col><col class="w108"><col class="w62"></colgroup>
+        <thead><tr><th>referisane</th><th id="kAtH">do —</th><th>ceo dan</th></tr></thead>
+        <tbody id="kH"></tbody>
+      </table>
+      <div class="sub" id="kSub"></div>
     </section>
     <section class="card">
-      <div class="ct"><h2>Posete po satu</h2><span>danas · juče</span></div>
-      <table>
-        <colgroup><col><col class="w62"><col class="w62"><col class="w62"></colgroup>
-        <thead><tr><th>sat</th><th>danas</th><th>juče</th><th>razlika</th></tr></thead>
+      <div class="ct"><h2>Tok dana</h2><div class="chips" id="cmpM"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button></div></div>
+      <div class="sub" id="dMeta" style="margin-top:0"></div>
+      <div id="chDay"></div>
+      <div class="legend" id="dayLeg"></div>
+    </section>
+    <section class="card">
+      <div class="ct"><h2 id="hTitle">Po satu</h2><span>pil = danas prema tom danu</span></div>
+      <div id="chHrs"></div>
+      <table style="margin-top:8px">
+        <colgroup><col><col class="w54"><col class="w62"><col class="w62"><col class="w62"></colgroup>
+        <thead><tr><th>sat</th><th>danas</th><th>juče</th><th>pre 7 d</th><th>pre 14 d</th></tr></thead>
         <tbody id="hBody"></tbody>
       </table>
       <button class="lnk" id="btnHours" type="button"></button>
@@ -212,7 +238,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <section class="card">
       <div class="ct"><h2>Po danu</h2><span>dodir na dan = detalji</span></div>
       <table>
-        <colgroup><col><col class="w56"><col class="w56"><col class="w50"><col class="w44"></colgroup>
+        <colgroup><col><col class="w56"><col class="w62"><col class="w50"><col class="w44"></colgroup>
         <thead><tr><th>dan</th><th>posete</th><th>vs ned.</th><th>Google</th><th>out</th></tr></thead>
         <tbody id="dBody"></tbody>
       </table>
@@ -245,7 +271,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
-const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng' };
+const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', cmp: 'puls.m.cmp' };
 const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
              has(k) { try { return localStorage.getItem(k) != null; } catch (e) { return false; } } };
@@ -264,6 +290,7 @@ const median = a => { const s = a.filter(x => x != null && !isNaN(x)).sort((x, y
 // ---------------------------------------------------------------- podesavanje + uvoz istorije sa racunara
 let CFG = ls.get(LS.cfg);
 let H = ls.get(LS.hist) || {};       // istorija po danu: {datum: {c, e, u, nb, k, h, nw, bo, mo, cd, cm, g, q, b, r, f, src, p}}
+let CV = ls.get(LS.cv) || {};       // krive sa racunara za dane koje izvor nema: {datum: [posete po slotu, referisane po slotu]}, slot = 00:35 + 10 min
 let NOTE = null;
 const b64bytes = s => { const b = s.replace(/-/g, '+').replace(/_/g, '/'); return Uint8Array.from(atob(b + '==='.slice((b.length + 3) % 4)), c => c.charCodeAt(0)); };
 const IMPORT = (function fromHash() {
@@ -295,6 +322,7 @@ async function importHist(b64) {
       H[d] = e; n++;
     }
     ls.set(LS.hist, H);
+    if (doc.cv) { CV = doc.cv; ls.set(LS.cv, CV); }
     NOTE = `Uvezeno ${n} dana istorije sa računara (do ${dstr(doc.d[doc.d.length - 1][0])}).`;
   } catch (e) { NOTE = 'Uvoz istorije nije uspeo: ' + (e.message || e); }
 }
@@ -413,9 +441,9 @@ async function fetchRows(params, onRow) {
 }
 
 // ---------------------------------------------------------------- stanje
-const KEEP_MIN = 130, REFS_MIN = 40, BINS_DAYS = 8, BACK_DAYS = 29;
-const S = { today: null, rows: [], day: null, yday: null, wday: null, last: null, err: null, busy: false, next: 0, hold: false, cycle: 0,
-            tab: ls.get(LS.tab) || 'sada', rng: ls.get(LS.rng) || 14, allHours: false };
+const KEEP_MIN = 130, REFS_MIN = 40, BINS_DAYS = 15, BACK_DAYS = 29;
+const S = { today: null, rows: [], day: null, yday: null, wday: null, w2day: null, last: null, err: null, busy: false, next: 0, hold: false, cycle: 0,
+            tab: ls.get(LS.tab) || 'sada', rng: ls.get(LS.rng) || 14, allHours: false, cmp: ls.get(LS.cmp) === 'h' ? 'h' : 'c' };
 // dan = {date, last, s: {bin: [tsm, uv, u, on, nw, bo, g, k]}} — bin = 10 min, vrednost = poslednji red u binu
 const newDay = date => ({ date, last: null, s: {}, lastU: 0 });
 // posete u binu: tacan broj kad ga red nosi, inace zbir po refereru x poslednji zdrav odnos tog dana (procena)
@@ -497,7 +525,7 @@ function nextBackfill() {
   for (let i = 2; i <= BACK_DAYS; i++) {
     const d = addDays(S.today, -i), e = H[d];
     if (!e || e.p) return d;
-    if (i === 7 && !e.x && !e.jx && !ls.has(LS.day(d))) return d;      // isti dan prosle nedelje: treba kriva
+    if ((i === 7 || i === 14) && !e.x && !e.jx && !ls.has(LS.day(d))) return d;      // isti dan pre 7 / 14 dana: treba kriva
     if (!low && e.src === 'pc' && !e.jd && !e.jx) low = d;
   }
   return low;
@@ -520,6 +548,7 @@ async function load(first) {
         S.day = ls.get(LS.day(date)) || newDay(date);
         S.yday = ls.get(LS.day(prevDate(date)));
         S.wday = ls.get(LS.day(addDays(date, -7)));
+        S.w2day = ls.get(LS.day(addDays(date, -14)));
       }
       if (S.hold) { S.last = head; S.err = null; render(); return; }
       if (!S.last) { S.last = head; render(); }
@@ -554,6 +583,7 @@ async function load(first) {
         const keep = d >= addDays(S.today, -BINS_DAYS);
         const res = await loadDay(d, keep);
         if (d === addDays(S.today, -7)) S.wday = res.day;
+        if (d === addDays(S.today, -14)) S.w2day = res.day;
         if (res.n) break;
       }
       render();
@@ -589,11 +619,59 @@ function refArrivals() {
   for (const n of Object.keys(rNow.refs)) out[n] = Math.max(0, rNow.refs[n] - (rA.refs[n] || 0)) * f;
   return out;
 }
+// SMER + ZNACAJ (isto kao na racunaru): strelica, znak i boja uvek pokazuju smer; pun pil = razlika preko praga `thr`
 function pill(dev, thr = 0.10) {
   if (dev == null || !isFinite(dev)) return '<span class="dl none">—</span>';
-  const cls = dev >= thr ? 'up' : dev <= -thr ? 'down' : 'flat';
-  return `<span class="dl ${cls}">${dev > 0 ? '+' : ''}${P(dev * 100, Math.abs(dev) < .1 ? 1 : 0)}</span>`;
+  const a = Math.abs(dev * 100), flat = a < 0.5, f = a < 10 ? 1 : 0;
+  return `<span class="dl ${flat ? 'flat' : dev > 0 ? 'up' : 'down'}${!flat && Math.abs(dev) >= thr ? ' strong' : ''}"><i>${flat ? '●' : dev > 0 ? '▲' : '▼'}</i>${flat ? '' : dev > 0 ? '+' : '−'}${a.toLocaleString('de-DE', { minimumFractionDigits: f, maximumFractionDigits: f })}%</span>`;
 }
+// ---- poredjenje dana: danas prema juce / pre 7 / pre 14 dana ----
+// which: 0 = posete, 1 = referisane (bez direktnih i botova). Dan se cita iz binova telefona; gde ih nema (izvor cuva redove
+// tek od 2.10.2026) iz krive uvezene sa racunara (CV, 141 slot: 00:35 + 10 min).
+const CMP = [[1, 'juče', 'y'], [7, 'pre 7 dana', 'w1'], [14, 'pre 14 dana', 'w2']];
+const CMP_DAY = 0.07, CMP_HOUR = 0.15;      // pun pil: dan preko 7 %, pojedinacan sat (sumovit) preko 15 %
+const refKeys = () => allKeys().filter(k => k !== 'bots' && k !== 'direct');
+const refPick = x => x[6] ? cum(x[6], refKeys()) : null;
+const cmpDay = back => back === 0 ? S.day : back === 1 ? S.yday : back === 7 ? S.wday : S.w2day;      // 0 = danas
+function cvAt(d, m, which) {
+  const arr = CV[d] && CV[d][which];
+  if (!arr) return null;
+  if (m <= 0) return 0;
+  const e = H[d], total = e ? (which ? e.h : e.c) : null, f = (m - 35) / 10, n = arr.length;
+  if (f <= 0) return arr[0] == null ? null : arr[0] * m / 35;
+  const i = Math.floor(f);
+  if (i >= n - 1) { const v = arr[n - 1]; return v == null ? null : (total != null && total > v ? v + (total - v) * Math.min(1, Math.max(0, (m - 35 - 10 * (n - 1)) / 5)) : v); }
+  const a = arr[i], b = arr[i + 1];
+  if (a == null) return null;
+  if (f - i < 1e-9) return a;
+  return b == null ? null : a + (b - a) * (f - i);
+}
+// spoj dve mere: kriva sa racunara (klon countries / hourly) i redovi izvora nisu isti brojac -> deo iz krive se mnozi odnosom
+// na prvom binu telefona, da kriva dana nema skok na spoju (dan koji izvor ima tek od pola dana, npr. 2.10.)
+function cvK(back, which) {
+  const day = cmpDay(back);
+  if (!day) return 1;
+  const pick = which ? refPick : cOf(day), pts = Object.values(day.s).filter(x => pick(x) != null);
+  if (!pts.length) return 1;
+  const f = pts.reduce((a, b) => a[0] <= b[0] ? a : b), cv = f[0] > 60 ? cvAt(addDays(S.today, -back), f[0], which) : null;
+  return cv > 0 ? pick(f) / cv : 1;
+}
+function dayAt(back, m, which) {
+  const day = cmpDay(back), v = valAt(day, m, which ? refPick : cOf(day));
+  if (v != null) return v;
+  const c = cvAt(addDays(S.today, -back), m, which);
+  return c == null ? null : c * cvK(back, which);
+}
+// tacke krive dana za grafik: binovi telefona, a deo dana pre prvog bina (ili ceo dan) iz krive sa racunara
+function cmpPts(back, which) {
+  const day = cmpDay(back), pick = which ? refPick : cOf(day);
+  const own = day ? Object.values(day.s).map(x => [x[0], pick(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
+  const cv = CV[addDays(S.today, -back)], arr = cv && cv[which], first = own.length ? own[0][0] : 1e9;
+  if (!arr || first <= 60) return own;
+  const k = cvK(back, which);
+  return arr.map((v, i) => [35 + 10 * i, v == null ? null : v * k]).filter(p => p[1] != null && p[0] < first).concat(own);
+}
+const ck = k => `<span class="ck${k === 't' ? '' : ' ' + k}"></span>`;
 const pp = (a, b) => a == null || b == null ? '' : `<span class="dl ${a - b >= .01 ? 'up' : a - b <= -.01 ? 'down' : 'flat'}">${a > b ? '+' : ''}${((a - b) * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 }).replace('-', '−')} pp</span>`;
 const hOut = e => e && e.h > 0 && e.k != null ? e.k / e.h : null;
 const histDays = n => { const out = []; for (let i = n; i >= 1; i--) { const d = addDays(S.today, -i), e = H[d]; if (e && !e.x && e.c != null) out.push([d, e]); } return out; };
@@ -682,7 +760,7 @@ function render() {
 }
 
 function renderSada({ L, on, cNow, cEst }) {
-  const Y = S.yday, yAt = valAt(Y, L.tsm, cOf(Y)), yb = lastBin(Y), yEnd = (H[prevDate(S.today)] || {}).c || (yb ? cOf(Y)(yb) : null);
+  const Y = S.yday, yAt = dayAt(1, L.tsm, 0), yb = lastBin(Y), yEnd = (H[prevDate(S.today)] || {}).c || (yb ? cOf(Y)(yb) : null);
   $('#oV').textContent = N(on);
   $('#cV').textContent = (cEst ? '≈ ' : '') + N(cNow);
   $('#cMeta').textContent = 'red ' + hms(L.at);
@@ -726,23 +804,49 @@ function renderSada({ L, on, cNow, cEst }) {
 }
 
 function renderDan({ L, cNow, cEst }) {
-  const Y = S.yday, Wd = S.wday, T = S.day;
-  const pts = day => day ? Object.values(day.s).map(x => [x[0], cOf(day)(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
-  const pW = pts(Wd), pY = pts(Y);
-  lineChart($('#chDay'), [{ pts: pW, color: 'var(--s-bing)', w: 1.2, dash: '3 3' }, { pts: pY, color: 'var(--s-tail)', w: 1.5 }, { pts: pts(T), color: 'var(--gold)', w: 2.2, fill: true }],
-            { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 130, top: K });
-  $('#dayLeg').innerHTML = `<span>${sw('google')}danas</span>` + (pY.length > 1 ? `<span>${sw('tail')}juče</span>` : '') + (pW.length > 1 ? `<span>${sw('bing')}${DOW[new Date(S.today + 'T12:00:00Z').getUTCDay()]} prošle ned.</span>` : '');
-  $('#dMeta').textContent = (cEst ? '≈ ' : '') + N(cNow) + ' do ' + hms(L.at).slice(0, 5);
-  const yAt = valAt(Y, L.tsm, cOf(Y)), wAt = valAt(Wd, L.tsm, cOf(Wd)), e7 = H[addDays(S.today, -7)], eY = H[prevDate(S.today)];
-  $('#dSub').innerHTML = [yAt ? `juče u ovo vreme <b class="num">${N(yAt)}</b> ${pill(cNow / yAt - 1, .05)}` : '', wAt ? `pre 7 dana u ovo vreme <b class="num">${N(wAt)}</b> ${pill(cNow / wAt - 1, .05)}` : '',
-    eY && eY.c ? `juče ukupno <b class="num">${N(eY.c)}</b>` : '', e7 && e7.c ? `pre 7 dana ukupno <b class="num">${N(e7.c)}</b>` : ''].filter(Boolean).join('<br>') || 'poređenja stižu kad izvor ima jučerašnji dan';
-  // po satu: prirast poseta u satu (tekuci sat = do sada)
-  const hourOf = (day, h, upto) => { const a = valAt(day, 60 * h, cOf(day)), b = valAt(day, Math.min(60 * (h + 1), upto), cOf(day)); return a == null || b == null ? null : Math.max(0, b - a); };
-  const curH = Math.floor(L.tsm / 60), rows = [];
+  const w = S.cmp === 'h' ? 1 : 0, eY = H[prevDate(S.today)], at = hms(L.at).slice(0, 5);
+  const nowV = [cNow, cum(L.g, refKeys())];
+  // poredjenje dana: do ovog doba dana (pil = danas prema tom danu) + ceo taj dan
+  let miss = false;
+  const cmpRows = which => {
+    let html = `<tr class="lead"><td>${ck('t')}danas<br><span class="dt">${dstr(S.today)}</span></td><td class="num"><span class="cv">${which === 0 && cEst ? '≈ ' : ''}${N(nowV[which])}</span></td><td class="num mt">u toku</td></tr>`;
+    for (const [back, label, k] of CMP) {
+      const d = addDays(S.today, -back), e = H[d] && !H[d].x ? H[d] : null, vAt = dayAt(back, L.tsm, which), vEnd = e ? (which ? e.h : e.c) : null;
+      const fl = (e && e.f ? e.f.split(',') : []).filter(x => x && (which === 0 || x !== 'bot'));
+      if (vAt == null) miss = true;
+      html += `<tr><td>${ck(k)}${label}<br><span class="dt">${dstr(d)}${fl.length ? ` <span class="fl">⚠ ${esc(fl.join(', '))}</span>` : ''}</span></td>` +
+        `<td class="num">${vAt != null ? `<span class="cv">${N(vAt)}</span>` + pill(vAt ? nowV[which] / vAt - 1 : null, CMP_DAY) : '<span class="dl none">—</span>'}</td><td class="num mt">${vEnd != null ? N(vEnd) : '—'}</td></tr>`;
+    }
+    return html;
+  };
+  $('#kAtC').textContent = $('#kAtH').textContent = 'do ' + at;
+  $('#kC').innerHTML = cmpRows(0); $('#kH').innerHTML = cmpRows(1);
+  $('#kSub').innerHTML = 'Zeleno = danas više nego tog dana u isto doba, crveno = manje; pun pil = razlika preko 7 %. Referisane = bez direktnih i botova' +
+    (Object.values(H).some(e => (e.f || '').includes('bot')) ? ' (čisto poređenje i kad je dan nosio bota — oznaka ⚠ bot).' : '.') +
+    (miss ? '<br>— = telefon nema krivu tog dana: izvor čuva redove tek od 2.10, starije dane uvozi računar (Podešavanje).' : '');
+  // tok dana (kumulativno): danas + juce + pre 7 + pre 14 dana
+  document.querySelectorAll('#cmpM button').forEach(b => b.classList.toggle('on', b.dataset.m === S.cmp));
+  const ptsT = cmpPts(0, w);
+  const pC = CMP.map(([back]) => cmpPts(back, w)), LINE = [{ color: 'var(--s-tail)', w: 1.5 }, { color: 'var(--blue)', w: 1.4 }, { color: 'var(--blue)', w: 1.2, dash: '3 3' }];
+  const xo = { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 130, top: K };
+  lineChart($('#chDay'), [2, 1, 0].map(j => Object.assign({ pts: pC[j] }, LINE[j])).concat([{ pts: ptsT, color: 'var(--gold)', w: 2.2, fill: true }]), xo);
+  const leg = `<span>${ck('t')}danas</span>` + CMP.map(([, label, k], j) => pC[j].length > 1 ? `<span>${ck(k)}${label}</span>` : '').join('');
+  $('#dayLeg').innerHTML = leg;
+  $('#dMeta').innerHTML = `${w ? 'referisane' : 'posete'} <b class="num">${!w && cEst ? '≈ ' : ''}${N(nowV[w])}</b> do ${at}`;
+  // po satu: prirast u satu (tekuci sat = do sada, poredi se sa istim delom sata)
+  const hourC = (back, h, upto) => { const a = dayAt(back, 60 * h, w), b = dayAt(back, Math.min(60 * (h + 1), upto), w); return a == null || b == null ? null : Math.max(0, b - a); };
+  const curH = Math.floor(L.tsm / 60), rows = [], hrsT = [], hrsC = CMP.map(() => []);
+  for (let h = 0; h < 24; h++) {
+    if (h < curH || (h === curH && L.tsm % 60 === 59)) { const t = hourC(0, h, 1440); if (t != null) hrsT.push([h + .5, t]); }
+    CMP.forEach(([back], j) => { const v = hourC(back, h, 1440); if (v != null) hrsC[j].push([h + .5, v]); });
+  }
+  lineChart($('#chHrs'), [2, 1, 0].map(j => Object.assign({ pts: hrsC[j] }, LINE[j])).concat([{ pts: hrsT, color: 'var(--gold)', w: 2.2 }]),
+            { x0: 0, x1: 24, y0: 0, grid: [6, 12, 18], xl: t => String(t).padStart(2, '0') + 'h', h: 120, top: K });
+  $('#hTitle').textContent = w ? 'Referisane po satu' : 'Posete po satu';
   for (let h = curH; h >= 0; h--) {
-    const t = hourOf(T, h, L.tsm), y = hourOf(Y, h, 1440), part = h === curH && L.tsm % 60 !== 59;
-    const yCmp = part ? hourOf(Y, h, L.tsm) : y;
-    rows.push(`<tr${part ? ' class="lead"' : ''}><td>${String(h).padStart(2, '0')}–${String(h + 1).padStart(2, '0')}${part ? ' <span class="mt" style="font-weight:400">do sada</span>' : ''}</td><td class="num">${N(t)}</td><td class="num mt">${N(y)}</td><td>${pill(t != null && yCmp ? t / yCmp - 1 : null)}</td></tr>`);
+    const part = h === curH && L.tsm % 60 !== 59, t = hourC(0, h, L.tsm);
+    rows.push(`<tr${part ? ' class="lead"' : ''}><td>${String(h).padStart(2, '0')}–${String(h + 1).padStart(2, '0')}${part ? '<br><span class="dt">do sada</span>' : ''}</td><td class="num">${N(t)}</td>` +
+      CMP.map(([back]) => { const v = hourC(back, h, part ? L.tsm : 1440); return `<td>${pill(t != null && v ? t / v - 1 : null, CMP_HOUR)}</td>`; }).join('') + '</tr>');
   }
   $('#hBody').innerHTML = (S.allHours ? rows : rows.slice(0, 6)).join('');
   $('#btnHours').hidden = rows.length <= 6; $('#btnHours').textContent = S.allHours ? 'samo poslednjih 6 sati' : `svih ${rows.length} sati`;
@@ -841,11 +945,12 @@ $('#btnSave').addEventListener('click', () => {
 $('#btnForget').addEventListener('click', () => {
   if (!confirm('Obrisati adresu, ključ, istoriju i sačuvane dane sa ovog uređaja?')) return;
   try { Object.keys(localStorage).filter(k => k.startsWith('puls.m.') && k !== LS.theme).forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  CFG = null; H = {}; S.today = null; S.last = null; S.rows = []; S.showSetup = false; render();
+  CFG = null; H = {}; CV = {}; S.today = null; S.last = null; S.rows = []; S.showSetup = false; render();
 });
 $('#tabs').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.tab = b.dataset.t; ls.set(LS.tab, S.tab); NOTE = null; render(); scrollTo(0, 0); });
 $('#rng').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.rng = +b.dataset.n; ls.set(LS.rng, S.rng); render(); });
 $('#btnHours').addEventListener('click', () => { S.allHours = !S.allHours; render(); });
+$('#cmpM').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.cmp = b.dataset.m; ls.set(LS.cmp, S.cmp); render(); });
 $('#sBody').addEventListener('click', ev => { const tr = ev.target.closest('tr[data-k]'); if (tr) openSource(tr.dataset.k); });
 $('#dBody').addEventListener('click', ev => { const tr = ev.target.closest('tr[data-d]'); if (tr) openDay(tr.dataset.d); });
 $('#shClose').addEventListener('click', () => $('#sheet').close());
