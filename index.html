@@ -181,10 +181,20 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
         <thead><tr><th>referisane</th><th id="kAtH">do —</th><th>ceo dan</th></tr></thead>
         <tbody id="kH"></tbody>
       </table>
+      <table style="margin-top:14px">
+        <colgroup><col><col class="w108"><col class="w62"></colgroup>
+        <thead><tr><th>organic ukupno</th><th id="kAtS">do —</th><th>ceo dan</th></tr></thead>
+        <tbody id="kS"></tbody>
+      </table>
+      <table style="margin-top:14px">
+        <colgroup><col><col class="w54"><col class="w62"><col class="w62"><col class="w62"></colgroup>
+        <thead><tr><th>organic</th><th>danas</th><th>juče</th><th>pre 7 d</th><th>pre 14 d</th></tr></thead>
+        <tbody id="kE"></tbody>
+      </table>
       <div class="sub" id="kSub"></div>
     </section>
     <section class="card">
-      <div class="ct"><h2>Tok dana</h2><div class="chips" id="cmpM"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button></div></div>
+      <div class="ct"><h2>Tok dana</h2><div class="chips" id="cmpM"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button><button type="button" data-m="s">organic</button></div></div>
       <div class="sub" id="dMeta" style="margin-top:0"></div>
       <div id="chDay"></div>
       <div class="legend" id="dayLeg"></div>
@@ -443,7 +453,7 @@ async function fetchRows(params, onRow) {
 // ---------------------------------------------------------------- stanje
 const KEEP_MIN = 130, REFS_MIN = 40, BINS_DAYS = 15, BACK_DAYS = 29;
 const S = { today: null, rows: [], day: null, yday: null, wday: null, w2day: null, last: null, err: null, busy: false, next: 0, hold: false, cycle: 0,
-            tab: ls.get(LS.tab) || 'sada', rng: ls.get(LS.rng) || 14, allHours: false, cmp: ls.get(LS.cmp) === 'h' ? 'h' : 'c' };
+            tab: ls.get(LS.tab) || 'sada', rng: ls.get(LS.rng) || 14, allHours: false, cmp: ['h', 's'].includes(ls.get(LS.cmp)) ? ls.get(LS.cmp) : 'c' };
 // dan = {date, last, s: {bin: [tsm, uv, u, on, nw, bo, g, k]}} — bin = 10 min, vrednost = poslednji red u binu
 const newDay = date => ({ date, last: null, s: {}, lastU: 0 });
 // posete u binu: tacan broj kad ga red nosi, inace zbir po refereru x poslednji zdrav odnos tog dana (procena)
@@ -626,18 +636,22 @@ function pill(dev, thr = 0.10) {
   return `<span class="dl ${flat ? 'flat' : dev > 0 ? 'up' : 'down'}${!flat && Math.abs(dev) >= thr ? ' strong' : ''}"><i>${flat ? '●' : dev > 0 ? '▲' : '▼'}</i>${flat ? '' : dev > 0 ? '+' : '−'}${a.toLocaleString('de-DE', { minimumFractionDigits: f, maximumFractionDigits: f })}%</span>`;
 }
 // ---- poredjenje dana: danas prema juce / pre 7 / pre 14 dana ----
-// which: 0 = posete, 1 = referisane (bez direktnih i botova). Dan se cita iz binova telefona; gde ih nema (izvor cuva redove
-// tek od 2.10.2026) iz krive uvezene sa racunara (CV, 141 slot: 00:35 + 10 min).
+// which: 0 = posete, 1 = referisane (bez direktnih i botova), 2 = organic (svi pretrazivaci). Dan se cita iz binova telefona;
+// gde ih nema (izvor cuva redove tek od 2.10.2026) iz krive uvezene sa racunara (CV, 141 slot: 00:35 + 10 min).
 const CMP = [[1, 'juče', 'y'], [7, 'pre 7 dana', 'w1'], [14, 'pre 14 dana', 'w2']];
 const CMP_DAY = 0.07, CMP_HOUR = 0.15;      // pun pil: dan preko 7 %, pojedinacan sat (sumovit) preko 15 %
 const refKeys = () => allKeys().filter(k => k !== 'bots' && k !== 'direct');
 const refPick = x => x[6] ? cum(x[6], refKeys()) : null;
+const orgPick = x => x[6] ? cum(x[6], SEARCH) : null;
+const pickOf = (which, day) => which === 0 ? cOf(day) : which === 1 ? refPick : orgPick;
+const endOf = (e, which) => !e ? null : which === 0 ? e.c : which === 1 ? e.h : (e.g ? cum(e.g, SEARCH) : null);
+const ENG = [['google', 'Google'], ['bing', 'Bing'], ['duckduckgo', 'DDG'], ['yahoo', 'Yahoo']];
 const cmpDay = back => back === 0 ? S.day : back === 1 ? S.yday : back === 7 ? S.wday : S.w2day;      // 0 = danas
 function cvAt(d, m, which) {
   const arr = CV[d] && CV[d][which];
   if (!arr) return null;
   if (m <= 0) return 0;
-  const e = H[d], total = e ? (which ? e.h : e.c) : null, f = (m - 35) / 10, n = arr.length;
+  const total = endOf(H[d], which), f = (m - 35) / 10, n = arr.length;
   if (f <= 0) return arr[0] == null ? null : arr[0] * m / 35;
   const i = Math.floor(f);
   if (i >= n - 1) { const v = arr[n - 1]; return v == null ? null : (total != null && total > v ? v + (total - v) * Math.min(1, Math.max(0, (m - 35 - 10 * (n - 1)) / 5)) : v); }
@@ -649,27 +663,39 @@ function cvAt(d, m, which) {
 // spoj dve mere: kriva sa racunara (klon countries / hourly) i redovi izvora nisu isti brojac -> deo iz krive se mnozi odnosom
 // na prvom binu telefona, da kriva dana nema skok na spoju (dan koji izvor ima tek od pola dana, npr. 2.10.)
 function cvK(back, which) {
-  const day = cmpDay(back);
-  if (!day) return 1;
-  const pick = which ? refPick : cOf(day), pts = Object.values(day.s).filter(x => pick(x) != null);
-  if (!pts.length) return 1;
+  const day = cmpDay(back), pick = pickOf(which, day), pts = day ? Object.values(day.s).filter(x => pick(x) != null) : [];
+  if (!pts.length) {
+    // dan samo iz krive sa racunara: organic kriva je klon hourly, a telefon organic sabira po refereru (~1,5 % vise) -> svedi na zbir dana po refereru
+    const d = addDays(S.today, -back), arr = which === 2 && CV[d] ? CV[d][2] : null, last = arr ? arr.reduce((a, x) => x != null ? x : a, null) : null;
+    const end = endOf(H[d] && !H[d].x ? H[d] : null, 2);
+    return last > 0 && end ? end / last : 1;
+  }
   const f = pts.reduce((a, b) => a[0] <= b[0] ? a : b), cv = f[0] > 60 ? cvAt(addDays(S.today, -back), f[0], which) : null;
   return cv > 0 ? pick(f) / cv : 1;
 }
 function dayAt(back, m, which) {
-  const day = cmpDay(back), v = valAt(day, m, which ? refPick : cOf(day));
+  const day = cmpDay(back), v = valAt(day, m, pickOf(which, day));
   if (v != null) return v;
   const c = cvAt(addDays(S.today, -back), m, which);
   return c == null ? null : c * cvK(back, which);
 }
 // tacke krive dana za grafik: binovi telefona, a deo dana pre prvog bina (ili ceo dan) iz krive sa racunara
 function cmpPts(back, which) {
-  const day = cmpDay(back), pick = which ? refPick : cOf(day);
+  const day = cmpDay(back), pick = pickOf(which, day);
   const own = day ? Object.values(day.s).map(x => [x[0], pick(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
   const cv = CV[addDays(S.today, -back)], arr = cv && cv[which], first = own.length ? own[0][0] : 1e9;
   if (!arr || first <= 60) return own;
   const k = cvK(back, which);
   return arr.map((v, i) => [35 + 10 * i, v == null ? null : v * k]).filter(p => p[1] != null && p[0] < first).concat(own);
+}
+// jedan pretrazivac u minutu m tog dana: binovi telefona, inace zbir dana x udeo krive svih pretrazivaca sa racunara (procena)
+function engAt(back, m, key) {
+  const day = cmpDay(back), v = valAt(day, m, x => x[6] ? (x[6][key] || 0) : null);
+  if (v != null) return v;
+  const d = addDays(S.today, -back), e = H[d], end = e && !e.x && e.g ? e.g[key] : null, arr = CV[d] && CV[d][2];
+  if (!end || !arr) return null;
+  const last = arr.reduce((a, x) => x != null ? x : a, null), s = cvAt(d, m, 2);
+  return last > 0 && s != null ? end * Math.min(1, s / last) : null;
 }
 const ck = k => `<span class="ck${k === 't' ? '' : ' ' + k}"></span>`;
 const pp = (a, b) => a == null || b == null ? '' : `<span class="dl ${a - b >= .01 ? 'up' : a - b <= -.01 ? 'down' : 'flat'}">${a > b ? '+' : ''}${((a - b) * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 }).replace('-', '−')} pp</span>`;
@@ -804,14 +830,14 @@ function renderSada({ L, on, cNow, cEst }) {
 }
 
 function renderDan({ L, cNow, cEst }) {
-  const w = S.cmp === 'h' ? 1 : 0, eY = H[prevDate(S.today)], at = hms(L.at).slice(0, 5);
-  const nowV = [cNow, cum(L.g, refKeys())];
+  const w = S.cmp === 'h' ? 1 : S.cmp === 's' ? 2 : 0, eY = H[prevDate(S.today)], at = hms(L.at).slice(0, 5);
+  const nowV = [cNow, cum(L.g, refKeys()), cum(L.g, SEARCH)];
   // poredjenje dana: do ovog doba dana (pil = danas prema tom danu) + ceo taj dan
   let miss = false;
   const cmpRows = which => {
     let html = `<tr class="lead"><td>${ck('t')}danas<br><span class="dt">${dstr(S.today)}</span></td><td class="num"><span class="cv">${which === 0 && cEst ? '≈ ' : ''}${N(nowV[which])}</span></td><td class="num mt">u toku</td></tr>`;
     for (const [back, label, k] of CMP) {
-      const d = addDays(S.today, -back), e = H[d] && !H[d].x ? H[d] : null, vAt = dayAt(back, L.tsm, which), vEnd = e ? (which ? e.h : e.c) : null;
+      const d = addDays(S.today, -back), e = H[d] && !H[d].x ? H[d] : null, vAt = dayAt(back, L.tsm, which), vEnd = endOf(e, which);
       const fl = (e && e.f ? e.f.split(',') : []).filter(x => x && (which === 0 || x !== 'bot'));
       if (vAt == null) miss = true;
       html += `<tr><td>${ck(k)}${label}<br><span class="dt">${dstr(d)}${fl.length ? ` <span class="fl">⚠ ${esc(fl.join(', '))}</span>` : ''}</span></td>` +
@@ -819,9 +845,12 @@ function renderDan({ L, cNow, cEst }) {
     }
     return html;
   };
-  $('#kAtC').textContent = $('#kAtH').textContent = 'do ' + at;
-  $('#kC').innerHTML = cmpRows(0); $('#kH').innerHTML = cmpRows(1);
-  $('#kSub').innerHTML = 'Zeleno = danas više nego tog dana u isto doba, crveno = manje; pun pil = razlika preko 7 %. Referisane = bez direktnih i botova' +
+  $('#kAtC').textContent = $('#kAtH').textContent = $('#kAtS').textContent = 'do ' + at;
+  $('#kC').innerHTML = cmpRows(0); $('#kH').innerHTML = cmpRows(1); $('#kS').innerHTML = cmpRows(2);
+  // organic po pretrazivacu: danas do sada + pil prema istom dobu tog dana (Google prag 7 %, manji pretrazivaci su sumoviti -> 15 %)
+  $('#kE').innerHTML = ENG.map(([key, label]) => { const v = L.g[key] || 0; return `<tr><td>${sw(key)}${label}</td><td class="num">${N(v)}</td>` +
+    CMP.map(([back]) => { const y = engAt(back, L.tsm, key); return `<td>${pill(y ? v / y - 1 : null, key === 'google' ? CMP_DAY : CMP_HOUR)}</td>`; }).join('') + '</tr>'; }).join('');
+  $('#kSub').innerHTML = 'Zeleno = danas više nego tog dana u isto doba, crveno = manje; pun pil = razlika preko 7 %. Organic = svi pretraživači; referisane = organic + partneri, bez direktnih i botova' +
     (Object.values(H).some(e => (e.f || '').includes('bot')) ? ' (čisto poređenje i kad je dan nosio bota — oznaka ⚠ bot).' : '.') +
     (miss ? '<br>— = telefon nema krivu tog dana: izvor čuva redove tek od 2.10, starije dane uvozi računar (Podešavanje).' : '');
   // tok dana (kumulativno): danas + juce + pre 7 + pre 14 dana
@@ -832,7 +861,7 @@ function renderDan({ L, cNow, cEst }) {
   lineChart($('#chDay'), [2, 1, 0].map(j => Object.assign({ pts: pC[j] }, LINE[j])).concat([{ pts: ptsT, color: 'var(--gold)', w: 2.2, fill: true }]), xo);
   const leg = `<span>${ck('t')}danas</span>` + CMP.map(([, label, k], j) => pC[j].length > 1 ? `<span>${ck(k)}${label}</span>` : '').join('');
   $('#dayLeg').innerHTML = leg;
-  $('#dMeta').innerHTML = `${w ? 'referisane' : 'posete'} <b class="num">${!w && cEst ? '≈ ' : ''}${N(nowV[w])}</b> do ${at}`;
+  $('#dMeta').innerHTML = `${['posete', 'referisane', 'organic'][w]} <b class="num">${!w && cEst ? '≈ ' : ''}${N(nowV[w])}</b> do ${at}`;
   // po satu: prirast u satu (tekuci sat = do sada, poredi se sa istim delom sata)
   const hourC = (back, h, upto) => { const a = dayAt(back, 60 * h, w), b = dayAt(back, Math.min(60 * (h + 1), upto), w); return a == null || b == null ? null : Math.max(0, b - a); };
   const curH = Math.floor(L.tsm / 60), rows = [], hrsT = [], hrsC = CMP.map(() => []);
@@ -842,7 +871,7 @@ function renderDan({ L, cNow, cEst }) {
   }
   lineChart($('#chHrs'), [2, 1, 0].map(j => Object.assign({ pts: hrsC[j] }, LINE[j])).concat([{ pts: hrsT, color: 'var(--gold)', w: 2.2 }]),
             { x0: 0, x1: 24, y0: 0, grid: [6, 12, 18], xl: t => String(t).padStart(2, '0') + 'h', h: 120, top: K });
-  $('#hTitle').textContent = w ? 'Referisane po satu' : 'Posete po satu';
+  $('#hTitle').textContent = ['Posete po satu', 'Referisane po satu', 'Organic po satu'][w];
   for (let h = curH; h >= 0; h--) {
     const part = h === curH && L.tsm % 60 !== 59, t = hourC(0, h, L.tsm);
     rows.push(`<tr${part ? ' class="lead"' : ''}><td>${String(h).padStart(2, '0')}–${String(h + 1).padStart(2, '0')}${part ? '<br><span class="dt">do sada</span>' : ''}</td><td class="num">${N(t)}</td>` +
