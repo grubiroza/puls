@@ -209,12 +209,12 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
       </table>
     </section>
     <section class="card">
-      <div class="ct"><h2>Trade</h2><span>out klikovi po referisanoj poseti</span></div>
+      <div class="ct"><h2>Partneri</h2><span>posete po partneru</span></div>
       <div class="row"><div class="mid num" id="tV">—</div><span id="tDl"></span></div>
       <div class="sub" id="tSub"></div>
       <table style="margin-top:10px">
-        <colgroup><col><col class="w54"><col class="w44"><col class="w44"><col class="w44"></colgroup>
-        <thead><tr><th>partner</th><th>danas</th><th>30 min</th><th>out</th><th>out %</th></tr></thead>
+        <colgroup><col><col class="w56"><col class="w50"><col class="w50"></colgroup>
+        <thead><tr><th>partner</th><th>danas</th><th>30 min</th><th>novi</th></tr></thead>
         <tbody id="tBody"></tbody>
       </table>
     </section>
@@ -803,7 +803,6 @@ function projC(L, cNow) {
 }
 const ck = k => `<span class="ck${k === 't' ? '' : ' ' + k}"></span>`;
 const pp = (a, b) => a == null || b == null ? '' : `<span class="dl ${a - b >= .01 ? 'up' : a - b <= -.01 ? 'down' : 'flat'}">${a > b ? '+' : ''}${((a - b) * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 }).replace('-', '−')} pp</span>`;
-const hOut = e => e && e.h > 0 && e.k != null ? e.k / e.h : null;
 const histDays = n => { const out = []; for (let i = n; i >= 1; i--) { const d = addDays(S.today, -i), e = H[d]; if (e && !e.x && e.c != null) out.push([d, e]); } return out; };
 
 // ---------------------------------------------------------------- crtanje
@@ -985,15 +984,15 @@ function renderDan({ L, cNow, cEst }) {
     return `<tr class="${cls}"><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${f(0)}</td><td class="num">${f(1)}</td><td class="num">${f(2)}</td></tr>`;
   };
   $('#qBody').innerHTML = q ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => qrow(cls, c, label, keys)).join('') + qrow('total', '', 'sve bez botova', allKeys().filter(k => k !== 'bots')) : '<tr><td colspan="4" class="mt">stiže sa sledećim redom</td></tr>';
-  // trade: out % = out klikovi / referisane posete (bez direktnih i botova) — ista mera kao na racunaru
-  const ref = L.u - (L.g.bots || 0) - (L.g.direct || 0), out = ref > 0 ? L.k / ref : null, usual = median(histDays(7).map(x => hOut(x[1])));
-  $('#tV').textContent = out != null ? P(out * 100) : '—';
-  $('#tDl').innerHTML = pp(out, usual);
-  $('#tSub').innerHTML = `<b class="num">${N(L.k)}</b> out klikova na <b class="num">${N(ref)}</b> referisanih` + (usual != null ? ` · uobičajeno <b class="num">${P(usual * 100)}</b> (medijana 7 dana, kraj dana)` : '');
-  const ra = refArrivals(), pk = partKeys();
+  // partneri: posete do sada + pil prema istom dobu pre 7 dana (isti broj kao red Partneri gore); po partneru danas / 30 min / udeo novih
+  const pk = partKeys(), pNow = kcum(L.g, pk), pW = grpAt(7, L.tsm, pk);
+  $('#tV').textContent = N(pNow);
+  $('#tDl').innerHTML = pill(pW ? pNow / pW - 1 : null, CMP_DAY);
+  $('#tSub').innerHTML = `do ${at} · 30 min <b class="num">${N(arrivals(pk, 30))}</b> · pil = prema istom dobu pre 7 dana`;
+  const ra = refArrivals();
   const partners = D ? D.refs.filter(x => pk.includes(x[1])) : [];
-  $('#tBody').innerHTML = partners.slice(0, 15).map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[2])}</td><td class="num mt">${ra ? N(ra[x[0]] || 0) : '·'}</td><td class="num">${N(x[4])}</td><td class="num mt">${x[2] ? P(100 * x[4] / x[2], 0) : '—'}</td></tr>`).join('') +
-    (partners.length > 15 ? `<tr class="dim"><td>još ${partners.length - 15} partnera</td><td class="num">${N(partners.slice(15).reduce((s, x) => s + x[2], 0))}</td><td></td><td class="num">${N(partners.slice(15).reduce((s, x) => s + x[4], 0))}</td><td></td></tr>` : '') || '<tr><td colspan="5" class="mt">stiže sa sledećim redom</td></tr>';
+  $('#tBody').innerHTML = partners.slice(0, 15).map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[2])}</td><td class="num mt">${ra ? N(ra[x[0]] || 0) : '·'}</td><td class="num mt">${x[2] ? P(100 * x[5] / x[2], 0) : '—'}</td></tr>`).join('') +
+    (partners.length > 15 ? `<tr class="dim"><td>još ${partners.length - 15} partnera</td><td class="num">${N(partners.slice(15).reduce((s, x) => s + x[2], 0))}</td><td></td><td></td></tr>` : '') || '<tr><td colspan="4" class="mt">stiže sa sledećim redom</td></tr>';
   // botovi: zahtevi (raw) po imenu
   const bNow = D ? D.bots : {}, hd = histDays(14), bY = (eY && eY.b) || {};
   const names = Object.keys(bNow).sort((a, b) => bNow[b] - bNow[a]);
@@ -1054,15 +1053,15 @@ function openSource(key) {
     <div class="sub">pil „isto doba" = do sada prema istom trenutku tog dana; pil „ceo dan" = projekcija prema celom tom danu</div>
     <h3>Tok dana</h3><div id="shDay"></div><div class="legend"><span><span class="sw" style="background:${color}"></span>danas</span><span>${sw('tail')}juče</span></div>
     <h3>Po danu</h3><div id="shDays"></div>
-    ${a && a[5] ? `<h3>Kvalitet danas</h3><div class="kv"><div><span>novi</span><b class="num">${P(100 * a[0] / a[5], 0)}</b></div><div><span>bounce</span><b class="num">${P(100 * a[1] / a[5], 0)}</b></div><div><span>mobilni</span><b class="num">${P(100 * a[2] / a[5], 0)}</b></div><div><span>out klikovi</span><b class="num">${N(a[3])} · ${P(100 * a[3] / a[5], 0)}</b></div></div>` : ''}
-    ${list.length > 1 ? `<h3>Referenti u grupi (${list.length})</h3><table><colgroup><col><col class="w54"><col class="w44"><col class="w44"></colgroup><thead><tr><th>referer</th><th>danas</th><th>30 min</th><th>out</th></tr></thead><tbody>${list.slice(0, 25).map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[2])}</td><td class="num mt">${ra ? N(ra[x[0]] || 0) : '·'}</td><td class="num mt">${N(x[4])}</td></tr>`).join('')}</tbody></table>` : ''}`);
+    ${a && a[5] ? `<h3>Kvalitet danas</h3><div class="kv"><div><span>novi</span><b class="num">${P(100 * a[0] / a[5], 0)}</b></div><div><span>bounce</span><b class="num">${P(100 * a[1] / a[5], 0)}</b></div><div><span>mobilni</span><b class="num">${P(100 * a[2] / a[5], 0)}</b></div></div>` : ''}
+    ${list.length > 1 ? `<h3>Referenti u grupi (${list.length})</h3><table><colgroup><col><col class="w54"><col class="w50"></colgroup><thead><tr><th>referer</th><th>danas</th><th>30 min</th></tr></thead><tbody>${list.slice(0, 25).map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[2])}</td><td class="num mt">${ra ? N(ra[x[0]] || 0) : '·'}</td></tr>`).join('')}</tbody></table>` : ''}`);
   fill('shDay', el => lineChart(el, [{ pts: pts(S.yday), color: 'var(--s-tail)', w: 1.5 }, { pts: pts(S.day), color, w: 2.2, fill: true }], { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110, top: K }) || (el.innerHTML = '<div class="sub">kriva stiže kad se skupi više redova</div>'));
   fill('shDays', el => hd.length ? dayBars(el, hd.map(([d, e], i) => ({ v: cum(e.g, keys), c: color, l: i === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v, c: color, o: true, l: 'danas' }]), { h: 90 }) : (el.innerHTML = '<div class="sub">istorija po izvoru se skuplja</div>'));
 }
 function openDay(d) {
   const today = d === S.today, e = today && S.last ? Object.assign({}, H[d], { c: Math.round(S.last.uv != null ? S.last.uv : S.last.u * kOf(S.day)) }) : H[d];
   if (!e) return;
-  const w = H[addDays(d, -7)], o = hOut(e), nb = e.nb || (e.u != null && e.g ? e.u - (e.g.bots || 0) : null), tot = e.g ? Object.keys(e.g).reduce((s, k) => s + (k === 'bots' ? 0 : e.g[k]), 0) : 0;
+  const w = H[addDays(d, -7)], nb = e.nb || (e.u != null && e.g ? e.u - (e.g.bots || 0) : null), tot = e.g ? Object.keys(e.g).reduce((s, k) => s + (k === 'bots' ? 0 : e.g[k]), 0) : 0;
   const kv = (l, v) => v ? `<div><span>${l}</span><b class="num">${v}</b></div>` : '';
   const rows = e.g ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => { const v = kcum(e.g, keys), wv = today ? grpAt(7, S.last.tsm, keys) : (w && w.g ? kcum(w.g, keys) : null); return `<tr class="${cls}"><td>${sw(c)}${esc(label)}</td><td class="num">${N(v)}</td><td class="num mt">${tot ? P(100 * v / tot, 0) : '—'}</td><td>${pill(wv ? v / wv - 1 : null)}</td></tr>`; }).join('') : '';
   const day = today ? S.day : ls.get(LS.day(d)), pts = day ? Object.values(day.s).map(x => [x[0], cOf(day)(x)]).filter(p => p[1] != null).sort((a, b) => a[0] - b[0]) : [];
@@ -1070,9 +1069,9 @@ function openDay(d) {
     `<div class="row"><div class="mid num">${e.e ? '≈ ' : ''}${N(e.c)}</div>${today ? '' : pill(w && w.c ? e.c / w.c - 1 : null, .05)}</div>
     <div class="sub">${w && w.c ? `isti dan nedelju ranije <b class="num">${N(w.c)}</b>` : 'nema dana za poređenje nedelju ranije'}${(e.f || '') ? ` · oznaka: ${esc(e.f)}` : ''}${e.e ? ' · ≈ procena (server restartovan tog dana)' : ''}</div>
     ${pts.length > 1 ? '<h3>Tok dana</h3><div id="shDay"></div>' : ''}
-    <div class="kv" style="margin-top:12px">${kv('out % (trade)', o != null ? P(o * 100) : '')}${kv('out klikovi', e.k != null ? N(e.k) : '')}${kv('novi', e.nw != null && nb ? P(100 * e.nw / nb, 0) : '')}${kv('bounce', e.bo != null && nb ? P(100 * e.bo / nb, 0) : '')}${kv('desktop / mobilni', e.cd != null && e.c ? `${P(100 * e.cd / e.c, 0)} / ${P(100 * e.cm / e.c, 0)}` : '')}${kv('Googlebot zahtevi', e.b && e.b['bot-googlebot'] != null ? N(e.b['bot-googlebot']) : '')}</div>
+    <div class="kv" style="margin-top:12px">${kv('novi', e.nw != null && nb ? P(100 * e.nw / nb, 0) : '')}${kv('bounce', e.bo != null && nb ? P(100 * e.bo / nb, 0) : '')}${kv('desktop / mobilni', e.cd != null && e.c ? `${P(100 * e.cd / e.c, 0)} / ${P(100 * e.cm / e.c, 0)}` : '')}${kv('Googlebot zahtevi', e.b && e.b['bot-googlebot'] != null ? N(e.b['bot-googlebot']) : '')}</div>
     ${rows ? `<h3>Izvori</h3><table><colgroup><col><col class="w56"><col class="w44"><col class="w62"></colgroup><thead><tr><th>izvor</th><th>posete</th><th>udeo</th><th>vs ned.</th></tr></thead><tbody>${rows}</tbody></table>${today ? '<div class="sub">vs ned. = do sada prema istom dobu dana pre 7 dana</div>' : ''}` : '<div class="sub">izvori po danu postoje za poslednjih ~90 dana</div>'}
-    ${e.r && e.r.length ? `<h3>Najjači referenti</h3><table><colgroup><col><col class="w56"><col class="w44"></colgroup><thead><tr><th>referer</th><th>posete</th><th>out</th></tr></thead><tbody>${e.r.map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[1])}</td><td class="num mt">${N(x[2])}</td></tr>`).join('')}</tbody></table>` : ''}`);
+    ${e.r && e.r.length ? `<h3>Najjači referenti</h3><table><colgroup><col><col class="w56"></colgroup><thead><tr><th>referer</th><th>posete</th></tr></thead><tbody>${e.r.map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[1])}</td></tr>`).join('')}</tbody></table>` : ''}`);
   fill('shDay', el => lineChart(el, [{ pts, color: 'var(--gold)', w: 2.2, fill: true }], { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110, top: K }));
 }
 
