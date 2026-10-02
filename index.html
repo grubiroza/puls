@@ -203,8 +203,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <section class="card">
       <div class="ct"><h2>Kvalitet po izvoru</h2><span>udeo u posetama izvora</span></div>
       <table>
-        <colgroup><col><col class="w48"><col class="w50"><col class="w48"><col class="w44"></colgroup>
-        <thead><tr><th>izvor</th><th>novi</th><th>bounce</th><th>mob.</th><th>out</th></tr></thead>
+        <colgroup><col><col class="w50"><col class="w54"><col class="w50"></colgroup>
+        <thead><tr><th>izvor</th><th>novi</th><th>bounce</th><th>mob.</th></tr></thead>
         <tbody id="qBody"></tbody>
       </table>
     </section>
@@ -239,8 +239,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <section class="card">
       <div class="ct"><h2>Po danu</h2><div class="chips" id="dM"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button><button type="button" data-m="s">organic</button></div></div>
       <table>
-        <colgroup><col><col class="w56"><col class="w62"><col class="w50"><col class="w44"></colgroup>
-        <thead><tr><th>dan</th><th id="dTh">posete</th><th>vs ned.</th><th>Google</th><th>out</th></tr></thead>
+        <colgroup><col><col class="w56"><col class="w62"><col class="w50"><col class="w62"></colgroup>
+        <thead><tr><th>dan</th><th id="dTh">posete</th><th>vs ned.</th><th>Google</th><th>vs ned.</th></tr></thead>
         <tbody id="dBody"></tbody>
       </table>
       <div class="sub" id="daysNote"></div>
@@ -982,9 +982,9 @@ function renderDan({ L, cNow, cEst }) {
   const qrow = (cls, c, label, keys) => {
     const a = keys.reduce((s, k) => { const x = q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]);
     const f = i => a[5] ? P(100 * a[i] / a[5], 0) : '—';
-    return `<tr class="${cls}"><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${f(0)}</td><td class="num">${f(1)}</td><td class="num">${f(2)}</td><td class="num">${a[5] && a[3] <= a[5] ? P(100 * a[3] / a[5], a[3] / a[5] < .1 ? 1 : 0) : '—'}</td></tr>`;
+    return `<tr class="${cls}"><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${f(0)}</td><td class="num">${f(1)}</td><td class="num">${f(2)}</td></tr>`;
   };
-  $('#qBody').innerHTML = q ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => qrow(cls, c, label, keys)).join('') + qrow('total', '', 'sve bez botova', allKeys().filter(k => k !== 'bots')) : '<tr><td colspan="5" class="mt">stiže sa sledećim redom</td></tr>';
+  $('#qBody').innerHTML = q ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => qrow(cls, c, label, keys)).join('') + qrow('total', '', 'sve bez botova', allKeys().filter(k => k !== 'bots')) : '<tr><td colspan="4" class="mt">stiže sa sledećim redom</td></tr>';
   // trade: out % = out klikovi / referisane posete (bez direktnih i botova) — ista mera kao na racunaru
   const ref = L.u - (L.g.bots || 0) - (L.g.direct || 0), out = ref > 0 ? L.k / ref : null, usual = median(histDays(7).map(x => hOut(x[1])));
   $('#tV').textContent = out != null ? P(out * 100) : '—';
@@ -1020,13 +1020,15 @@ function renderDani({ L, cNow, cEst }) {
     (w === 0 ? ' · puno = referisane, svetli vrh = direktne (od 20.9 pretežno bot)' : '') + ' · obris = danas do sada' : 'istorija se skuplja';
   $('#dTh').textContent = name;
   const row = (d, e, today) => {
-    const wk = H[addDays(d, -7)], v = today ? nowV : mv(d), wv = wk && !wk.x ? mv(addDays(d, -7)) : null, g = e.g ? e.g.google : null, o = hOut(e);
-    return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${today ? '<span class="dl none">u toku</span>' : pill(wv && v != null ? v / wv - 1 : null, .05)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td class="num mt">${o != null ? P(o * 100, 0) : '—'}</td></tr>`;
+    // danas: do sada prema ISTOM DOBU pre 7 dana (isti broj kao tab Dan); prosli dani: ceo dan prema celom danu nedelju ranije
+    const wk = H[addDays(d, -7)], v = today ? nowV : mv(d), g = today ? kcum(L.g, ['google']) : e.g ? e.g.google : null;
+    const wv = today ? mxAt([null, refKeys(), SEARCH][w], 7, L.tsm) : wk && !wk.x ? mv(addDays(d, -7)) : null, wg = today ? grpAt(7, L.tsm, ['google']) : wk && !wk.x && wk.g ? wk.g.google : null;
+    return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${pill(wv && v != null ? v / wv - 1 : null, .05)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td>${pill(wg && g != null ? g / wg - 1 : null, CMP_DAY)}</td></tr>`;
   };
   const tE = H[S.today];
   $('#dBody').innerHTML = (tE ? row(S.today, tE, true) : '') + hd.slice().reverse().slice(0, S.rng > 90 ? 120 : S.rng).map(([d, e]) => row(d, e, false)).join('');
   const nPc = Object.values(H).filter(e => e.src === 'pc').length, pend = (() => { let c = 0; for (let i = 2; i <= BACK_DAYS; i++) { const e = H[addDays(S.today, -i)]; if (!e || e.p) c++; } return c; })();
-  $('#daysNote').textContent = `Dodir na dan = detalji. vs ned. = ${name} prema istom danu nedelju ranije. ` + (nPc ? '' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ') + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
+  $('#daysNote').textContent = `Dodir na dan = detalji. vs ned. = ${name}, odnosno Google, prema istom danu nedelju ranije (red „danas": do sada prema istom dobu tog dana). ` + (nPc ? '' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ') + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
 }
 
 // ---------------------------------------------------------------- listovi (izvor, dan)
