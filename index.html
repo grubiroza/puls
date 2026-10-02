@@ -683,6 +683,20 @@ function kcum(g, keys) {
   if (keys.length === SEARCH.length + pk.length) return cum(g, SEARCH) * KS.s + cum(g, pk) * KS.p;
   return cum(g, keys);
 }
+// KRAJ DANA klase na klonovoj skali: uvezen dan = klonov zbir referisanih (e.h) podeljen krivom na organic / partnere (tacno);
+// dan iz izvora = zbir po refereru x KS. cls: 'h' referisane, 's' organic, 'p' partneri
+function classEnd(d, cls) {
+  const e = H[d];
+  if (!e || e.x) return null;
+  const cv = CV[d], last = a => a.reduce((q, x) => x != null ? x : q, null);
+  if (e.src === 'pc' && e.h && cv && cv[1] && cv[2]) {
+    const hE = last(cv[1]), sE = last(cv[2]);
+    if (hE > 0 && sE > 0) { const sT = e.h * sE / hE; return cls === 'h' ? e.h : cls === 's' ? sT : e.h - sT; }
+  }
+  if (!e.g) return cls === 'h' ? e.h : null;
+  return cls === 'h' ? kcum(e.g, refKeys()) : cls === 's' ? kcum(e.g, SEARCH) : kcum(e.g, partKeys());
+}
+const endD = (d, which) => { const e = H[d]; return !e || e.x ? null : which === 0 ? e.c : classEnd(d, which === 1 ? 'h' : 's'); };
 const refPick = x => x[6] ? kcum(x[6], refKeys()) : null;
 const orgPick = x => x[6] ? kcum(x[6], SEARCH) : null;
 const pickOf = (which, day) => which === 0 ? cOf(day) : which === 1 ? refPick : orgPick;
@@ -706,7 +720,7 @@ function cvAt(d, m, which) {
   const arr = CV[d] && CV[d][which];
   if (!arr) return null;
   if (m <= 0) return 0;
-  const total = endOf(H[d], which), f = (m - 35) / 10, n = arr.length;
+  const total = endD(d, which), f = (m - 35) / 10, n = arr.length;
   if (f <= 0) return arr[0] == null ? null : arr[0] * m / 35;
   const i = Math.floor(f);
   if (i >= n - 1) { const v = arr[n - 1]; return v == null ? null : (total != null && total > v ? v + (total - v) * Math.min(1, Math.max(0, (m - 35 - 10 * (n - 1)) / 5)) : v); }
@@ -722,7 +736,7 @@ function cvK(back, which) {
   if (!pts.length) {
     // dan samo iz krive sa racunara: organic kriva je klon hourly, a telefon organic sabira po refereru (~1,5 % vise) -> svedi na zbir dana po refereru
     const d = addDays(S.today, -back), arr = which === 2 && CV[d] ? CV[d][2] : null, last = arr ? arr.reduce((a, x) => x != null ? x : a, null) : null;
-    const end = endOf(H[d] && !H[d].x ? H[d] : null, 2);
+    const end = endD(d, 2);
     return last > 0 && end ? end / last : 1;
   }
   const f = pts.reduce((a, b) => a[0] <= b[0] ? a : b), cv = f[0] > 60 ? cvAt(addDays(S.today, -back), f[0], which) : null;
@@ -750,11 +764,13 @@ function grpAt(back, m, keys) {
   if (v != null) return v;
   const d = addDays(S.today, -back), e = H[d], cv = CV[d];
   if (!e || e.x || !e.g || !cv || !cv[1] || !cv[2]) return null;
-  const last = a => a.reduce((q, x) => x != null ? x : q, null), hA = cvAt(d, m, 1), sA = cvAt(d, m, 2), hE = last(cv[1]), sE = last(cv[2]);
-  if (hA == null || sA == null || !sE || !(hE > sE)) return null;
-  const sSh = Math.min(1, sA / sE), pSh = Math.min(1, Math.max(0, (hA - sA) / (hE - sE))), pk = partKeys();
-  const gs = {}; for (const k of Object.keys(e.g)) gs[k] = e.g[k] * (pk.includes(k) ? pSh : sSh);
-  return kcum(gs, keys);
+  const hA = cvAt(d, m, 1), sA = cvAt(d, m, 2), sT = classEnd(d, 's'), pT = classEnd(d, 'p'), pk = partKeys();
+  if (hA == null || sA == null || !(sT > 0) || !(pT > 0)) return null;
+  if (keys === SEARCH) return sA;
+  if (keys.length === pk.length && keys.every(k => pk.includes(k))) return Math.max(0, hA - sA);
+  if (keys.length === SEARCH.length + pk.length) return hA;
+  const sSh = Math.min(1, sA / sT), pSh = Math.min(1, Math.max(0, (hA - sA) / pT));
+  return keys.reduce((t, k) => t + (e.g[k] || 0) * (pk.includes(k) ? pSh : sSh), 0);
 }
 // ---- glavna tabela poredjenja: redovi = mere i izvori, kolone = danas + pil prema juce / pre 7 / pre 14 dana ----
 const mxRows = () => [['c', 'Posete', 'lead', null, ''], ['h', 'Referisane', 'lead', refKeys(), ''], ['s', 'Organic', 'lead', SEARCH, 'google'],
@@ -762,15 +778,15 @@ const mxRows = () => [['c', 'Posete', 'lead', null, ''], ['h', 'Referisane', 'le
   ['yahoo', 'Yahoo', 'child', ['yahoo'], 'yahoo'], ['part', 'Partneri', 'lead', partKeys(), 'trade'], ['direct', 'Direktno', 'lead', ['direct'], 'direct']];
 const mxThr = k => ['bing', 'duckduckgo', 'yahoo', 'direct'].includes(k) ? CMP_HOUR : CMP_DAY;      // manji izvori su sumoviti
 const mxAt = (keys, back, m) => keys ? grpAt(back, m, keys) : dayAt(back, m, 0);
-const mxEnd = (key, keys, e) => !e || e.x ? null : !keys ? e.c : key === 'h' ? endOf(e, 1) : e.g ? kcum(e.g, keys) : null;
+const mxEnd = (key, keys, d) => { const e = H[d]; return !e || e.x ? null : !keys ? e.c : key === 'h' ? classEnd(d, 'h') : key === 's' || key === 'search' ? classEnd(d, 's') : key === 'part' ? classEnd(d, 'p') : e.g ? cum(e.g, keys) : null; };
 // projekcija kraja dana: sada x medijana (kraj dana / isto doba dana) iz do 7 poslednjih dana koje telefon ima (binovi ili kriva sa racunara)
 function mxProj(key, keys, now, m) {
   if (!(now > 0) || m < 180) return null;
   const rs = [];
   for (let b = 1; b <= 14 && rs.length < 7; b++) {
-    const e = H[addDays(S.today, -b)];
+    const d = addDays(S.today, -b), e = H[d];
     if (!e || e.x || /outage|partial|dst/.test(e.f || '')) continue;
-    const end = mxEnd(key, keys, e), a = mxAt(keys, b, m);
+    const end = mxEnd(key, keys, d), a = mxAt(keys, b, m);
     if (end > 0 && a > 0 && end >= a) rs.push(end / a);
   }
   return rs.length >= 3 ? now * median(rs) : null;
@@ -929,7 +945,7 @@ function renderDan({ L, cNow, cEst }) {
   $('#mxBody').innerHTML = mxRows().map(([key, label, cls, keys, c]) => {
     const now = keys ? kcum(L.g, keys) : cNow, proj = key === 'c' ? projC(L, cNow) : mxProj(key, keys, now, L.tsm), base = end ? proj : now;
     return `<tr class="${cls} tap" data-k="${key}"><td>${c ? sw(c) : ''}${label}</td><td class="num">${(key === 'c' && cEst ? '≈ ' : '') + N(now)}<br><span class="dt">${proj ? '≈ ' + N(proj) : '—'}</span></td>` +
-      CMP.map(([back]) => { const v = end ? mxEnd(key, keys, H[addDays(S.today, -back)]) : mxAt(keys, back, L.tsm); if (v == null) miss = true; return `<td>${pill(v && base != null ? base / v - 1 : null, mxThr(key))}</td>`; }).join('') + '</tr>';
+      CMP.map(([back]) => { const v = end ? mxEnd(key, keys, addDays(S.today, -back)) : mxAt(keys, back, L.tsm); if (v == null) miss = true; return `<td>${pill(v && base != null ? base / v - 1 : null, mxThr(key))}</td>`; }).join('') + '</tr>';
   }).join('');
   const botDays = CMP.filter(([back]) => ((H[addDays(S.today, -back)] || {}).f || '').includes('bot')).map(x => x[1]);
   $('#kSub').innerHTML = `Ispod broja do sada stoji projekcija kraja dana (≈). Pil = danas prema tom danu (${end ? 'projekcija prema celom danu' : 'isto doba dana'}): zeleno = danas više, crveno = manje; pun pil = preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Referisane = Organic + Partneri. Dodir na red = detalji.` +
@@ -992,19 +1008,19 @@ function renderDani({ L, cNow, cEst }) {
   document.querySelectorAll('#dM button').forEach(b => b.classList.toggle('on', b.dataset.m === S.cmp));
   // mera: posete / referisane / organic (isti izbor kao u tabu Dan) — u danima sa botom trend se cita na referisanim i organicu
   const w = S.cmp === 'h' ? 1 : S.cmp === 's' ? 2 : 0, name = ['posete', 'referisane', 'organic'][w];
-  const mv = e => endOf(e, w);
+  const mv = d => endD(d, w);
   const nowV = [cNow, kcum(L.g, refKeys()), kcum(L.g, SEARCH)][w], hd = histDays(S.rng), n = hd.length;
   const col = e => /outage|partial/.test(e.f || '') ? 'var(--s-tail)' : 'var(--gold)';
   const lblEvery = n <= 14 ? 3 : n <= 30 ? 7 : n <= 90 ? 21 : 60;
-  const trend = hd.map(x => w === 0 ? (x[1].h || x[1].c) : mv(x[1]));
-  dayBars($('#chDays'), hd.map(([d, e], i) => ({ v: mv(e), h: w === 0 ? e.h : null, c: col(e), l: (n - 1 - i) % lblEvery === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v: nowV, c: 'var(--gold)', o: true, l: '' }]),
+  const trend = hd.map(x => w === 0 ? (x[1].h || x[1].c) : mv(x[0]));
+  dayBars($('#chDays'), hd.map(([d, e], i) => ({ v: mv(d), h: w === 0 ? e.h : null, c: col(e), l: (n - 1 - i) % lblEvery === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v: nowV, c: 'var(--gold)', o: true, l: '' }]),
           { h: 130, line: median(trend) });
-  const have = hd.filter(x => mv(x[1]) != null), best = have.reduce((a, x) => !a || mv(x[1]) > mv(a[1]) ? x : a, null);
-  $('#daysSub').innerHTML = n ? `${n} dana · medijana ${w === 0 ? 'referisanih ' : ''}<b class="num">${N(median(trend))}</b>` + (best ? ` · najviše <b class="num">${N(mv(best[1]))}</b> (${dstr(best[0])})` : '') +
+  const have = hd.filter(x => mv(x[0]) != null), best = have.reduce((a, x) => !a || mv(x[0]) > mv(a[0]) ? x : a, null);
+  $('#daysSub').innerHTML = n ? `${n} dana · medijana ${w === 0 ? 'referisanih ' : ''}<b class="num">${N(median(trend))}</b>` + (best ? ` · najviše <b class="num">${N(mv(best[0]))}</b> (${dstr(best[0])})` : '') +
     (w === 0 ? ' · puno = referisane, svetli vrh = direktne (od 20.9 pretežno bot)' : '') + ' · obris = danas do sada' : 'istorija se skuplja';
   $('#dTh').textContent = name;
   const row = (d, e, today) => {
-    const wk = H[addDays(d, -7)], v = today ? nowV : mv(e), wv = wk && !wk.x ? mv(wk) : null, g = e.g ? e.g.google : null, o = hOut(e);
+    const wk = H[addDays(d, -7)], v = today ? nowV : mv(d), wv = wk && !wk.x ? mv(addDays(d, -7)) : null, g = e.g ? e.g.google : null, o = hOut(e);
     return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${today ? '<span class="dl none">u toku</span>' : pill(wv && v != null ? v / wv - 1 : null, .05)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td class="num mt">${o != null ? P(o * 100, 0) : '—'}</td></tr>`;
   };
   const tE = H[S.today];
@@ -1022,7 +1038,7 @@ function openSource(key) {
   const pts = day => day ? Object.values(day.s).filter(x => x[6]).map(x => [x[0], cum(x[6], keys)]).sort((a, b) => a[0] - b[0]) : [];
   const v = kcum(L.g, keys), hd = histDays(14).filter(x => x[1].g), pr = mxProj(key, keys, v, L.tsm), thr = ['search', 'google', 'part'].includes(key) ? CMP_DAY : CMP_HOUR;
   const cmpTr = CMP.map(([back, lbl, k]) => {
-    const d = addDays(S.today, -back), e = H[d] && !H[d].x ? H[d] : null, a = grpAt(back, L.tsm, keys), en = e && e.g ? kcum(e.g, keys) : null;
+    const d = addDays(S.today, -back), e = H[d] && !H[d].x ? H[d] : null, a = grpAt(back, L.tsm, keys), en = mxEnd(key, keys, d);
     return `<tr><td>${ck(k)}${lbl}<br><span class="dt">${dstr(d)}</span></td><td class="num">${a != null ? `<span class="cv">${N(a)}</span>` + pill(a ? v / a - 1 : null, thr) : '<span class="dl none">—</span>'}</td><td class="num">${en != null ? `<span class="cv">${N(en)}</span>` + pill(en && pr ? pr / en - 1 : null, thr) : '<span class="dl none">—</span>'}</td></tr>`;
   }).join('');
   const a = D ? keys.reduce((s, k) => { const x = D.q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]) : null;
