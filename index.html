@@ -13,7 +13,7 @@
 :root{
   --bg:#0e1014;--card:#161a21;--card-2:#1c2129;--line:rgba(255,255,255,.07);--text:#e8e6df;--text-2:rgba(232,230,223,.66);--text-3:rgba(232,230,223,.55);
   --gold:#d4a542;--green:#4cc38a;--red:#e5484d;--amber:#f5b53f;--grid:rgba(255,255,255,.07);
-  --s-google:#b98a2b;--s-bing:#3987e5;--s-duckduckgo:#d95926;--s-yahoo:#199e70;--s-direct:#9085e9;--s-x:#d55181;--s-trade:#2a9db8;--s-tail:#6b7280;
+  --s-search:#b98a2b;--s-google:#4285f4;--s-bing:#008373;--s-duckduckgo:#de5833;--s-yahoo:#6001d2;--s-direct:#9085e9;--s-x:#d55181;--s-trade:#2a9db8;--s-tail:#6b7280;
   --up-ink:#5fd39c;--down-ink:#ff7a7d;--up-soft:rgba(76,195,138,.13);--down-soft:rgba(229,72,77,.15);
   --up:#4cc38a;--down:#e5484d;--up-on:#06150e;--down-on:#fff;--blue:#7ea8ff;
   --ff:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
@@ -21,7 +21,7 @@
 :root[data-theme="light"]{
   --bg:#f4f2ec;--card:#fff;--card-2:#f7f5ef;--line:rgba(0,0,0,.08);--text:#1a1a1a;--text-2:rgba(26,26,26,.72);--text-3:rgba(26,26,26,.62);
   --gold:#b8891f;--green:#1f9d63;--red:#d4383d;--amber:#c98a12;--grid:rgba(0,0,0,.07);
-  --s-google:#b8891f;--s-bing:#2a78d6;--s-duckduckgo:#eb6834;--s-yahoo:#00a383;--s-direct:#4a3aa7;--s-x:#d55181;--s-trade:#0093b8;--s-tail:#9aa0ab;
+  --s-search:#d2a441;--s-google:#8ab4f8;--s-bing:#1fb8a6;--s-duckduckgo:#f0754f;--s-yahoo:#a066f0;--s-direct:#4a3aa7;--s-x:#d55181;--s-trade:#0093b8;--s-tail:#9aa0ab;
   --up-ink:#0f7a49;--down-ink:#c02a30;--up-soft:rgba(31,157,99,.12);--down-soft:rgba(212,56,61,.11);
   --up:#1f9d63;--down:#c62f34;--up-on:#06150e;--down-on:#fff;--blue:#3b6fd6;
 }
@@ -177,7 +177,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <section class="card">
       <div class="ct"><h2>Dolasci po 10 min</h2><span>poslednja 2 h</span></div>
       <div id="chBars"></div>
-      <div class="legend"><span><span class="sw" style="background:var(--s-google)"></span>organic</span><span><span class="sw" style="background:var(--s-trade)"></span>partneri</span><span><span class="sw" style="background:var(--s-direct)"></span>direktno</span></div>
+      <div class="legend"><span><span class="sw" style="background:var(--s-search)"></span>organic</span><span><span class="sw" style="background:var(--s-trade)"></span>partneri</span><span><span class="sw" style="background:var(--s-direct)"></span>direktno</span></div>
     </section>
     <section class="card">
       <div class="ct"><h2>Referenti</h2><span>dolasci 30 min · danas</span></div>
@@ -382,7 +382,7 @@ function groupOf(name, isbot, ispub) {
 const SEARCH = ['google', 'bing', 'duckduckgo', 'yahoo', 'search_other', 'other', 'social'];
 const partKeys = () => ['trade'].concat(EXTRA.map(x => x.key));
 function tableRows() {
-  return [['search', 'Organic', 'lead', SEARCH, 'google'], ['google', 'Google', 'child', ['google'], 'google'], ['bing', 'Bing', 'child', ['bing'], 'bing'],
+  return [['search', 'Organic', 'lead', SEARCH, 'search'], ['google', 'Google', 'child', ['google'], 'google'], ['bing', 'Bing', 'child', ['bing'], 'bing'],
     ['duckduckgo', 'DuckDuckGo', 'child', ['duckduckgo'], 'duckduckgo'], ['yahoo', 'Yahoo', 'child', ['yahoo'], 'yahoo'],
     ['rest', 'Ostali', 'child', ['search_other', 'other', 'social'], 'tail'],
     ['part', 'Partneri', 'lead', partKeys(), 'trade'], ['trade', 'Trade', 'child', ['trade'], 'trade']]
@@ -833,7 +833,7 @@ function grpAt(back, m, keys) {
   return keys.reduce((t, k) => t + (e.g[k] || 0) * (pk.includes(k) ? pSh : sSh), 0);
 }
 // ---- glavna tabela poredjenja: redovi = mere i izvori, kolone = danas + pil prema juce / pre 7 / pre 14 dana ----
-const mxRows = () => [['c', 'Posete', 'lead', null, ''], ['h', 'Referisane', 'lead', refKeys(), ''], ['s', 'Organic', 'lead', SEARCH, 'google'],
+const mxRows = () => [['c', 'Posete', 'lead', null, ''], ['h', 'Referisane', 'lead', refKeys(), ''], ['s', 'Organic', 'lead', SEARCH, 'search'],
   ['google', 'Google', 'child', ['google'], 'google'], ['bing', 'Bing', 'child', ['bing'], 'bing'], ['duckduckgo', 'DDG', 'child', ['duckduckgo'], 'duckduckgo'],
   ['yahoo', 'Yahoo', 'child', ['yahoo'], 'yahoo'], ['part', 'Partneri', 'lead', partKeys(), 'trade'], ['direct', 'Direktno', 'lead', ['direct'], 'direct']];
 const mxThr = k => ['bing', 'duckduckgo', 'yahoo', 'direct'].includes(k) ? CMP_HOUR : CMP_DAY;      // manji izvori su sumoviti
@@ -896,7 +896,7 @@ function lineChart(el, series, o) {
 function stackBars(el, bins) {
   const W = 320, H_ = 92, pb = 14, pt = 4, n = bins.length, step = W / n, bw = step * .68;
   const mx = Math.max(1, ...bins.map(b => b.v ? b.v.reduce((a, c) => a + c, 0) : 0));
-  const col = ['var(--s-google)', 'var(--s-trade)', 'var(--s-direct)'];
+  const col = ['var(--s-search)', 'var(--s-trade)', 'var(--s-direct)'];   // organic = svoja boja (3.10, bila Googleova)
   let out = svgEl(W, H_);
   bins.forEach((b, i) => {
     if (!b.v) return;
