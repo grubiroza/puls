@@ -79,6 +79,7 @@ tr.tap{cursor:pointer}
 tr.dim td{color:var(--text-3)}
 td.mt{color:var(--text-2)}
 .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
+tr.per td{background:var(--card-2)}tr.per.last td{border-bottom:2px solid var(--line)}tr.per td:first-child .dt{margin-left:3px}   /* blok Periodi (3.10) */
 .ck{display:inline-block;width:11px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle;background:var(--gold)}
 .ck.y{background:var(--s-tail)}.ck.w1{background:var(--blue)}.ck.w2{background:repeating-linear-gradient(90deg,var(--blue) 0 3px,transparent 3px 6px)}
 .dt{color:var(--text-3);font-size:11px;font-weight:400}
@@ -1178,8 +1179,17 @@ function renderDani({ L, cNow, cEst }) {
     const wv = today ? mxAt(eng ? [eng] : [null, refKeys(), SEARCH][w], 7, L.tsm) : wk && !wk.x ? mv(addDays(d, -7)) : null, wg = today ? grpAt(7, L.tsm, keys2) : wk && !wk.x ? mv2(addDays(d, -7)) : null;
     return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${pill(wv && v != null ? v / wv - 1 : null, CMP_DAY)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td>${pill(wg && g != null ? g / wg - 1 : null, CMP_DAY)}</td></tr>`;
   };
+  // PERIODI (3.10.2026, Rale): prosek po danu poslednjih nD zatvorenih dana (do juce) + pil prema prethodnih nD — isti racun kao na racunaru
+  // (prozori = dostupni dani; ≈ = prozor nepotpun, — = manje od pola prozora); izabrana mera + drugi par
+  const allD = histDays(730), mean = xs => xs.reduce((s, x) => s + x, 0) / xs.length;
+  const perRow = nD => {
+    const last = allD.slice(-nD), prev = allD.slice(-2 * nD, -nD);
+    const one = f => { const a = last.map(([d]) => f(d)).filter(x => x != null), b = prev.map(([d]) => f(d)).filter(x => x != null); return a.length < nD / 2 || b.length < nD / 2 ? null : { v: Math.round(mean(a)), w: Math.round(mean(b)), est: a.length < nD || b.length < nD }; };
+    const c = (z, cls) => z ? `<td class="${cls}">${z.est ? '≈ ' : ''}${N(z.v)}</td><td>${pill(z.w ? z.v / z.w - 1 : null, CMP_DAY)}</td>` : `<td class="${cls}">—</td><td></td>`;
+    return `<tr class="per${nD === 365 ? ' last' : ''}"><td>${nD} d <span class="dt">ø/dan</span></td>${c(one(mv), 'num')}${c(one(mv2), 'num mt')}</tr>`;
+  };
   const tE = H[S.today];
-  $('#dBody').innerHTML = (tE ? row(S.today, tE, true) : '') + hd.slice().reverse().slice(0, S.rng > 90 ? 120 : S.rng).map(([d, e]) => row(d, e, false)).join('');
+  $('#dBody').innerHTML = [7, 14, 30, 90, 365].map(perRow).join('') + (tE ? row(S.today, tE, true) : '') + hd.slice().reverse().slice(0, S.rng > 90 ? 120 : S.rng).map(([d, e]) => row(d, e, false)).join('');
   // istorija (kao kartica Istorija na racunaru): poslednjih 6 meseci, rekordi, profil nedelje (medijana po danu u nedelji, 12 nedelja)
   const all = Object.keys(H).filter(d => d < S.today && !H[d].x && H[d].c != null).sort(), MON = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'avg', 'sep', 'okt', 'nov', 'dec'];
   const mon = {}, mName = k => MON[+k.slice(5) - 1];
@@ -1196,7 +1206,7 @@ function renderDani({ L, cNow, cEst }) {
   const wkOk = wk.filter(x => x.v != null), wkHi = wkOk.reduce((a, x) => !a || x.v > a.v ? x : a, null), wkLo = wkOk.reduce((a, x) => !a || x.v < a.v ? x : a, null);
   $('#wkSub').innerHTML = l84.length >= 14 && wkHi ? `medijana poseta, 12 nedelja · najjači <b>${DOW[wkHi.wd]}</b> <b class="num">${N(wkHi.v)}</b> · najslabiji <b>${DOW[wkLo.wd]}</b> <b class="num">${N(wkLo.v)}</b> · obris = danas` : 'profil nedelje stiže kad se skupi 14 dana';
   const nPc = Object.values(H).filter(e => e.src === 'pc').length, pend = (() => { let c = 0; for (let i = 2; i <= BACK_DAYS; i++) { const e = H[addDays(S.today, -i)]; if (!e || e.p) c++; } return c; })();
-  $('#daysNote').textContent = 'Pil = prema istom danu nedelju ranije („danas" = do sada prema istom dobu). Dodir na dan = detalji. ' + (nPc ? '' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ') + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
+  $('#daysNote').textContent = 'Redovi 7–365 d = prosek po danu u periodu (do juče) i pil prema prethodnom periodu iste dužine (≈ = prethodni period nepotpun, — = premalo podataka). Pil dana = prema istom danu nedelju ranije („danas" = do sada prema istom dobu). Dodir na dan = detalji. ' + (nPc ? '' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ') + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
 }
 
 // ---------------------------------------------------------------- listovi (izvor, dan)
