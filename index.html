@@ -247,7 +247,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
            naslovom „Posete po danima" iako prate izabranu meru, cipovi mere ispod njih u drugoj kartici) -->
       <div class="ct"><h2>Po danu</h2><div class="chips" id="rng"><button type="button" data-n="7">7</button><button type="button" data-n="14">14</button><button type="button" data-n="30">30</button><button type="button" data-n="90">90</button><button type="button" data-n="365">365</button></div></div>
       <div class="chips" id="dM" style="margin-bottom:6px"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button><button type="button" data-m="s">organic</button></div>
-      <div class="chips" id="dE" style="margin-bottom:10px" aria-label="pretraživač kao mera"><button type="button" data-m="google">Google</button><button type="button" data-m="bing">Bing</button><button type="button" data-m="duckduckgo">DDG</button><button type="button" data-m="yahoo">Yahoo</button></div>
+      <div class="chips" id="dE" style="margin-bottom:10px" aria-label="pretraživač kao mera"><button type="button" data-m="google"><span class="sw" style="background:var(--s-google)"></span>Google</button><button type="button" data-m="bing"><span class="sw" style="background:var(--s-bing)"></span>Bing</button><button type="button" data-m="duckduckgo"><span class="sw" style="background:var(--s-duckduckgo)"></span>DDG</button><button type="button" data-m="yahoo"><span class="sw" style="background:var(--s-yahoo)"></span>Yahoo</button></div>
       <div id="chDays"></div>
       <div class="sub" id="daysSub"></div>
       <table style="margin-top:12px">
@@ -1159,14 +1159,14 @@ function renderDani({ L, cNow, cEst }) {
   const w = eng ? 3 : S.cmp === 'h' ? 1 : S.cmp === 's' ? 2 : 0, name = eng ? ENG.find(x => x[0] === eng)[1] : ['posete', 'referisane', 'organic'][w];
   const mv = d => eng ? (H[d] && !H[d].x && H[d].g ? (H[d].g[eng] || null) : null) : endD(d, w);
   const nowV = eng ? kcum(L.g, [eng]) : [cNow, kcum(L.g, refKeys()), kcum(L.g, SEARCH)][w], hd = histDays(S.rng), n = hd.length;
-  const col = e => /outage|partial/.test(e.f || '') ? 'var(--s-tail)' : 'var(--gold)';
+  const engC = eng ? `var(--s-${eng})` : 'var(--gold)', col = e => /outage|partial/.test(e.f || '') ? 'var(--s-tail)' : engC;   // boja izvora (3.10)
   const lblEvery = n <= 14 ? 3 : n <= 30 ? 7 : n <= 90 ? 21 : 60;
   const trend = hd.map(x => w === 0 ? (x[1].h || x[1].c) : mv(x[0]));
-  dayBars($('#chDays'), hd.map(([d, e], i) => ({ v: mv(d), h: w === 0 ? e.h : null, c: col(e), l: (n - 1 - i) % lblEvery === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v: nowV, c: 'var(--gold)', o: true, l: '' }]),
+  dayBars($('#chDays'), hd.map(([d, e], i) => ({ v: mv(d), h: w === 0 ? e.h : null, c: col(e), l: (n - 1 - i) % lblEvery === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v: nowV, c: engC, o: true, l: '' }]),
           { h: 130, line: median(trend) });
   // legenda kratka (3.10.2026, Rale: „previse informacija koje se ponavljaju"): broj dana je u cipu, najvisi dan se vidi u tabeli ispod
   $('#daysSub').innerHTML = n ? `medijana ${w === 0 ? 'referisanih ' : ''}<b class="num">${N(median(trend))}</b>` + (w === 0 ? ' · svetli vrh = direktni' : '') + ' · obris = danas do sada' : 'istorija se skuplja';
-  $('#dTh').textContent = name;
+  $('#dTh').innerHTML = (eng ? `<span class="sw" style="background:var(--s-${eng})"></span>` : '') + name;   // boja izvora kao na racunaru (3.10)
   // drugi par kolona = jedan nivo dublje od izabrane mere: posete -> referisane (bez direktnih i bota), referisane -> organic, organic -> Google
   // (pretrazivac kao mera: drugi par = organic, njegov roditelj)
   const name2 = eng ? 'organic' : ['referisane', 'organic', 'Google'][w], keys2 = eng ? SEARCH : [refKeys(), SEARCH, ['google']][w], now2 = kcum(L.g, keys2);
