@@ -243,14 +243,14 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 
   <div id="tDani" hidden>
     <section class="card">
-      <div class="ct"><h2>Posete po danima</h2><div class="chips" id="rng"><button type="button" data-n="14">14</button><button type="button" data-n="30">30</button><button type="button" data-n="90">90</button><button type="button" data-n="365">365</button></div></div>
+      <!-- 3.10.2026: jedna kartica — opseg u zaglavlju, mera + pretrazivac ispod, isti izbor vodi i stubice i tabelu (bilo: stubici u svojoj kartici sa
+           naslovom „Posete po danima" iako prate izabranu meru, cipovi mere ispod njih u drugoj kartici) -->
+      <div class="ct"><h2>Po danu</h2><div class="chips" id="rng"><button type="button" data-n="14">14</button><button type="button" data-n="30">30</button><button type="button" data-n="90">90</button><button type="button" data-n="365">365</button></div></div>
+      <div class="chips" id="dM" style="margin-bottom:6px"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button><button type="button" data-m="s">organic</button></div>
+      <div class="chips" id="dE" style="margin-bottom:10px" aria-label="pretraživač kao mera"><button type="button" data-m="google">Google</button><button type="button" data-m="bing">Bing</button><button type="button" data-m="duckduckgo">DDG</button><button type="button" data-m="yahoo">Yahoo</button></div>
       <div id="chDays"></div>
       <div class="sub" id="daysSub"></div>
-    </section>
-    <section class="card">
-      <div class="ct"><h2>Po danu</h2><div class="chips" id="dM"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button><button type="button" data-m="s">organic</button></div></div>
-      <div class="chips" id="dE" style="margin:-2px 0 8px" aria-label="pretraživač kao mera"><button type="button" data-m="google">Google</button><button type="button" data-m="bing">Bing</button><button type="button" data-m="duckduckgo">DDG</button><button type="button" data-m="yahoo">Yahoo</button></div>
-      <table>
+      <table style="margin-top:12px">
         <colgroup><col><col class="w56"><col class="w62"><col class="w56"><col class="w62"></colgroup>
         <thead><tr><th>dan</th><th id="dTh">posete</th><th>vs ned.</th><th id="dTh2">referisane</th><th>vs ned.</th></tr></thead>
         <tbody id="dBody"></tbody>
@@ -1164,9 +1164,8 @@ function renderDani({ L, cNow, cEst }) {
   const trend = hd.map(x => w === 0 ? (x[1].h || x[1].c) : mv(x[0]));
   dayBars($('#chDays'), hd.map(([d, e], i) => ({ v: mv(d), h: w === 0 ? e.h : null, c: col(e), l: (n - 1 - i) % lblEvery === 0 ? dstr(d).split(' ')[1] : '' })).concat([{ v: nowV, c: 'var(--gold)', o: true, l: '' }]),
           { h: 130, line: median(trend) });
-  const have = hd.filter(x => mv(x[0]) != null), best = have.reduce((a, x) => !a || mv(x[0]) > mv(a[0]) ? x : a, null);
-  $('#daysSub').innerHTML = n ? `${n} dana · medijana ${w === 0 ? 'referisanih ' : ''}<b class="num">${N(median(trend))}</b>` + (best ? ` · najviše <b class="num">${N(mv(best[0]))}</b> (${dstr(best[0])})` : '') +
-    (w === 0 ? ' · puno = referisane, svetli vrh = direktne (od 20.9 pretežno bot)' : '') + ' · obris = danas do sada' : 'istorija se skuplja';
+  // legenda kratka (3.10.2026, Rale: „previse informacija koje se ponavljaju"): broj dana je u cipu, najvisi dan se vidi u tabeli ispod
+  $('#daysSub').innerHTML = n ? `medijana ${w === 0 ? 'referisanih ' : ''}<b class="num">${N(median(trend))}</b>` + (w === 0 ? ' · svetli vrh = direktni' : '') + ' · obris = danas do sada' : 'istorija se skuplja';
   $('#dTh').textContent = name;
   // drugi par kolona = jedan nivo dublje od izabrane mere: posete -> referisane (bez direktnih i bota), referisane -> organic, organic -> Google
   // (pretrazivac kao mera: drugi par = organic, njegov roditelj)
@@ -1191,14 +1190,13 @@ function renderDani({ L, cNow, cEst }) {
   $('#hiMeta').textContent = all.length ? `od ${dstr(all[0]).split(' ')[1]} · ${all.length} dana` : '';
   $('#hiMon').innerHTML = mKeys.map(k => `<div><span>${mName(k)} ${k.slice(2, 4)}</span><b class="num">${N(mon[k].u)}${mon[k].part ? '…' : ''}</b><div class="pb"><i style="width:${(100 * mon[k].u / mMax).toFixed(0)}%"></i></div></div>`).join('');
   const bestD = all.reduce((a, d) => !a || H[d].c > H[a].c ? d : a, null), fullM = mKeys.filter(k => !mon[k].part && mon[k].n >= 28), bestM = fullM.reduce((a, k) => !a || mon[k].u > mon[a].u ? k : a, null);
-  $('#hiRec').innerHTML = bestD ? `najbolji dan <b class="num">${N(H[bestD].c)}</b> (${dstr(bestD).split(' ')[1]})` + (bestM ? ` · najbolji mesec <b class="num">${N(mon[bestM].u)}</b> (${mName(bestM)})` : '') +
-    ` · medijana 7 d <b class="num">${N(median(all.slice(-7).map(d => H[d].c)))}</b> · 28 d <b class="num">${N(median(all.slice(-28).map(d => H[d].c)))}</b>` : 'istorija stiže uvozom sa računara (Podešavanje)';
+  $('#hiRec').innerHTML = bestD ? `najbolji dan <b class="num">${N(H[bestD].c)}</b> (${dstr(bestD).split(' ')[1]})` + (bestM ? ` · najbolji mesec <b class="num">${N(mon[bestM].u)}</b> (${mName(bestM)})` : '') : 'istorija stiže uvozom sa računara (Podešavanje)';
   const l84 = all.slice(-84), wdT = wdOf(S.today), wk = [1, 2, 3, 4, 5, 6, 0].map(wd => ({ wd, v: median(l84.filter(d => wdOf(d) === wd).map(d => H[d].c)) }));
   dayBars($('#chWk'), l84.length >= 14 ? wk.map(x => ({ v: x.v, l: DOW[x.wd], c: 'var(--gold)', o: x.wd === wdT })) : [], { h: 96 });
   const wkOk = wk.filter(x => x.v != null), wkHi = wkOk.reduce((a, x) => !a || x.v > a.v ? x : a, null), wkLo = wkOk.reduce((a, x) => !a || x.v < a.v ? x : a, null);
-  $('#wkSub').innerHTML = l84.length >= 14 && wkHi ? `medijana poseta po danu u nedelji, 12 nedelja · najjači <b>${DOW[wkHi.wd]}</b> <b class="num">${N(wkHi.v)}</b> · najslabiji <b>${DOW[wkLo.wd]}</b> <b class="num">${N(wkLo.v)}</b> · obris = današnji dan` : 'profil nedelje stiže kad se skupi 14 dana';
+  $('#wkSub').innerHTML = l84.length >= 14 && wkHi ? `medijana poseta, 12 nedelja · najjači <b>${DOW[wkHi.wd]}</b> <b class="num">${N(wkHi.v)}</b> · najslabiji <b>${DOW[wkLo.wd]}</b> <b class="num">${N(wkLo.v)}</b> · obris = danas` : 'profil nedelje stiže kad se skupi 14 dana';
   const nPc = Object.values(H).filter(e => e.src === 'pc').length, pend = (() => { let c = 0; for (let i = 2; i <= BACK_DAYS; i++) { const e = H[addDays(S.today, -i)]; if (!e || e.p) c++; } return c; })();
-  $('#daysNote').textContent = `Dodir na dan = detalji. vs ned. = ${name}, odnosno ${name2}, prema istom danu nedelju ranije (red „danas": do sada prema istom dobu tog dana). ` + (nPc ? '' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ') + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
+  $('#daysNote').textContent = 'Pil = prema istom danu nedelju ranije („danas" = do sada prema istom dobu). Dodir na dan = detalji. ' + (nPc ? '' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ') + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
 }
 
 // ---------------------------------------------------------------- listovi (izvor, dan)
