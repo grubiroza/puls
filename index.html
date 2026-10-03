@@ -310,7 +310,7 @@ const median = a => { const s = a.filter(x => x != null && !isNaN(x)).sort((x, y
 // ---------------------------------------------------------------- podesavanje + uvoz istorije sa racunara
 let CFG = ls.get(LS.cfg);
 let H = ls.get(LS.hist) || {};       // istorija po danu: {datum: {c, e, u, nb, k, h, nw, bo, mo, cd, cm, g, q, b, r, f, src, p}}
-let CV = ls.get(LS.cv) || {};       // krive sa racunara za dane koje izvor nema: {datum: [posete po slotu, referisane po slotu]}, slot = 00:35 + 10 min
+let CV = ls.get(LS.cv) || {};       // krive sa racunara za dane koje izvor nema: {datum: [posete, referisane, organic, direktni po slotu]}, slot = 00:35 + 10 min
 let NOTE = null;
 const b64bytes = s => { const b = s.replace(/-/g, '+').replace(/_/g, '/'); return Uint8Array.from(atob(b + '==='.slice((b.length + 3) % 4)), c => c.charCodeAt(0)); };
 const IMPORT = (function fromHash() {
@@ -736,7 +736,7 @@ function classEnd(d, cls) {
   const ke = endK(), so = cum(e.g, SEARCH) * ke.s, po = cum(e.g, partKeys()) * ke.p;
   return cls === 'h' ? so + po : cls === 's' ? so : po;
 }
-const endD = (d, which) => { const e = H[d]; return !e || e.x ? null : which === 0 ? e.c : classEnd(d, which === 1 ? 'h' : 's'); };
+const endD = (d, which) => { const e = H[d]; return !e || e.x ? null : which === 0 ? e.c : which === 3 ? (e.g ? e.g.direct : null) : classEnd(d, which === 1 ? 'h' : 's'); };
 const refPick = x => x[6] ? kcum(x[6], refKeys()) : null;
 const orgPick = x => x[6] ? kcum(x[6], SEARCH) : null;
 const pickOf = (which, day) => which === 0 ? cOf(day) : which === 1 ? refPick : orgPick;
@@ -768,6 +768,21 @@ function cvAt(d, m, which) {
   if (a == null) return null;
   if (f - i < 1e-9) return a;
   return b == null ? null : a + (b - a) * (f - i);
+}
+// kao cvAt, ali premoscuje rupe (slot bez tika = null) linearno izmedju najblizih poznatih slotova, na kraju ka zbiru dana —
+// kriva direktnih iz tikova racunara je retka, a racunar isto interpolira preko rupa (sources.tick_at); za pune krive = cvAt
+function cvAtGap(d, m, which) {
+  const v = cvAt(d, m, which);
+  if (v != null) return v;
+  const arr = CV[d] && CV[d][which];
+  if (!arr || m <= 35) return null;
+  const f = (m - 35) / 10, n = arr.length;
+  let i = Math.min(n - 1, Math.floor(f)), j = i + 1;
+  while (i >= 0 && arr[i] == null) i--;
+  while (j < n && arr[j] == null) j++;
+  if (i < 0) return null;
+  if (j >= n) { const total = endD(d, which); return total != null && total >= arr[i] ? arr[i] + (total - arr[i]) * Math.min(1, (f - i) / Math.max(1, n - i)) : arr[i]; }
+  return arr[i] + (arr[j] - arr[i]) * (f - i) / (j - i);
 }
 // spoj dve mere: kriva sa racunara (klon countries / hourly) i redovi izvora nisu isti brojac -> deo iz krive se mnozi odnosom
 // na prvom binu telefona, da kriva dana nema skok na spoju (dan koji izvor ima tek od pola dana, npr. 2.10.)
@@ -803,6 +818,9 @@ function grpAt(back, m, keys) {
   const day = cmpDay(back), v = valAt(day, m, x => x[6] ? kcum(x[6], keys) : null);
   if (v != null) return v;
   const d = addDays(S.today, -back), e = H[d], cv = CV[d];
+  // direktni: kriva sa racunara (nasi tikovi, uvoz) pre proxy-ja preko organika — oblik direktnih (bot ravan preko dana) nije oblik
+  // organika (SAD vece); 3.10.2026: proxy je precenjivao sumnjive direktne ~13 % dok telefon nema svojih binova za taj dan
+  if (keys.length === 1 && keys[0] === 'direct' && e && !e.x && e.g && cv && cv[3]) { const dv = cvAtGap(d, m, 3); if (dv != null) return dv; }
   if (!e || e.x || !e.g || !cv || !cv[1] || !cv[2]) return null;
   const hA = cvAt(d, m, 1), sA = cvAt(d, m, 2), sT = classEnd(d, 's'), pT = classEnd(d, 'p'), pk = partKeys();
   if (hA == null || sA == null || !(sT > 0) || !(pT > 0)) return null;
