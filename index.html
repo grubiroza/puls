@@ -249,6 +249,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     </section>
     <section class="card">
       <div class="ct"><h2>Po danu</h2><div class="chips" id="dM"><button type="button" data-m="c">posete</button><button type="button" data-m="h">referisane</button><button type="button" data-m="s">organic</button></div></div>
+      <div class="chips" id="dE" style="margin:-2px 0 8px" aria-label="pretraživač kao mera"><button type="button" data-m="google">Google</button><button type="button" data-m="bing">Bing</button><button type="button" data-m="duckduckgo">DDG</button><button type="button" data-m="yahoo">Yahoo</button></div>
       <table>
         <colgroup><col><col class="w56"><col class="w62"><col class="w56"><col class="w62"></colgroup>
         <thead><tr><th>dan</th><th id="dTh">posete</th><th>vs ned.</th><th id="dTh2">referisane</th><th>vs ned.</th></tr></thead>
@@ -291,7 +292,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
-const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', cmp: 'puls.m.cmp', cm: 'puls.m.cm', ks: 'puls.m.ks' };
+const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', cmp: 'puls.m.cmp', cm: 'puls.m.cm', ks: 'puls.m.ks', de: 'puls.m.de' };
 const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
              has(k) { try { return localStorage.getItem(k) != null; } catch (e) { return false; } } };
@@ -464,7 +465,8 @@ async function fetchRows(params, onRow) {
 // ---------------------------------------------------------------- stanje
 const KEEP_MIN = 130, REFS_MIN = 40, BINS_DAYS = 15, BACK_DAYS = 29;
 const S = { today: null, rows: [], day: null, yday: null, wday: null, w2day: null, last: null, err: null, busy: false, next: 0, hold: false, cycle: 0,
-            tab: ls.get(LS.tab) || 'sada', rng: ls.get(LS.rng) || 14, allHours: false, cmp: ['h', 's'].includes(ls.get(LS.cmp)) ? ls.get(LS.cmp) : 'c', cm: ls.get(LS.cm) === 'end' ? 'end' : 'at' };
+            tab: ls.get(LS.tab) || 'sada', rng: ls.get(LS.rng) || 14, allHours: false, cmp: ['h', 's'].includes(ls.get(LS.cmp)) ? ls.get(LS.cmp) : 'c', cm: ls.get(LS.cm) === 'end' ? 'end' : 'at',
+            de: ['google', 'bing', 'duckduckgo', 'yahoo'].includes(ls.get(LS.de)) ? ls.get(LS.de) : '' };   // tab Dani: izabrani pretrazivac ('' = mera iz #dM)
 // dan = {date, last, s: {bin: [tsm, uv, u, on, nw, bo, g, k]}} — bin = 10 min, vrednost = poslednji red u binu
 const newDay = date => ({ date, last: null, s: {}, lastU: 0 });
 // posete u binu: tacan broj kad ga red nosi, inace zbir po refereru x poslednji zdrav odnos tog dana (procena)
@@ -1149,11 +1151,14 @@ function renderDan({ L, cNow, cEst }) {
 
 function renderDani({ L, cNow, cEst }) {
   document.querySelectorAll('#rng button').forEach(b => b.classList.toggle('on', +b.dataset.n === S.rng));
-  document.querySelectorAll('#dM button').forEach(b => b.classList.toggle('on', b.dataset.m === S.cmp));
-  // mera: posete / referisane / organic (isti izbor kao u tabu Dan) — u danima sa botom trend se cita na referisanim i organicu
-  const w = S.cmp === 'h' ? 1 : S.cmp === 's' ? 2 : 0, name = ['posete', 'referisane', 'organic'][w];
-  const mv = d => endD(d, w);
-  const nowV = [cNow, kcum(L.g, refKeys()), kcum(L.g, SEARCH)][w], hd = histDays(S.rng), n = hd.length;
+  // mera: posete / referisane / organic (isti izbor kao u tabu Dan) ILI pretrazivac (red cipova #dE, 3.10.2026 — iste kolone kao
+  // tabela „Po danu" na racunaru) — u danima sa botom trend se cita na referisanim i organicu
+  const eng = ENG.some(x => x[0] === S.de) ? S.de : '';
+  document.querySelectorAll('#dM button').forEach(b => b.classList.toggle('on', !eng && b.dataset.m === S.cmp));
+  document.querySelectorAll('#dE button').forEach(b => b.classList.toggle('on', b.dataset.m === eng));
+  const w = eng ? 3 : S.cmp === 'h' ? 1 : S.cmp === 's' ? 2 : 0, name = eng ? ENG.find(x => x[0] === eng)[1] : ['posete', 'referisane', 'organic'][w];
+  const mv = d => eng ? (H[d] && !H[d].x && H[d].g ? (H[d].g[eng] || null) : null) : endD(d, w);
+  const nowV = eng ? kcum(L.g, [eng]) : [cNow, kcum(L.g, refKeys()), kcum(L.g, SEARCH)][w], hd = histDays(S.rng), n = hd.length;
   const col = e => /outage|partial/.test(e.f || '') ? 'var(--s-tail)' : 'var(--gold)';
   const lblEvery = n <= 14 ? 3 : n <= 30 ? 7 : n <= 90 ? 21 : 60;
   const trend = hd.map(x => w === 0 ? (x[1].h || x[1].c) : mv(x[0]));
@@ -1164,13 +1169,14 @@ function renderDani({ L, cNow, cEst }) {
     (w === 0 ? ' · puno = referisane, svetli vrh = direktne (od 20.9 pretežno bot)' : '') + ' · obris = danas do sada' : 'istorija se skuplja';
   $('#dTh').textContent = name;
   // drugi par kolona = jedan nivo dublje od izabrane mere: posete -> referisane (bez direktnih i bota), referisane -> organic, organic -> Google
-  const name2 = ['referisane', 'organic', 'Google'][w], keys2 = [refKeys(), SEARCH, ['google']][w], now2 = kcum(L.g, keys2);
-  const mv2 = d => w < 2 ? endD(d, w + 1) : (H[d] && !H[d].x && H[d].g ? H[d].g.google : null);
+  // (pretrazivac kao mera: drugi par = organic, njegov roditelj)
+  const name2 = eng ? 'organic' : ['referisane', 'organic', 'Google'][w], keys2 = eng ? SEARCH : [refKeys(), SEARCH, ['google']][w], now2 = kcum(L.g, keys2);
+  const mv2 = d => eng ? endD(d, 2) : w < 2 ? endD(d, w + 1) : (H[d] && !H[d].x && H[d].g ? H[d].g.google : null);
   $('#dTh2').textContent = name2;
   const row = (d, e, today) => {
     // danas: do sada prema ISTOM DOBU pre 7 dana (isti broj kao tab Dan); prosli dani: ceo dan prema celom danu nedelju ranije
     const wk = H[addDays(d, -7)], v = today ? nowV : mv(d), g = today ? now2 : mv2(d);
-    const wv = today ? mxAt([null, refKeys(), SEARCH][w], 7, L.tsm) : wk && !wk.x ? mv(addDays(d, -7)) : null, wg = today ? grpAt(7, L.tsm, keys2) : wk && !wk.x ? mv2(addDays(d, -7)) : null;
+    const wv = today ? mxAt(eng ? [eng] : [null, refKeys(), SEARCH][w], 7, L.tsm) : wk && !wk.x ? mv(addDays(d, -7)) : null, wg = today ? grpAt(7, L.tsm, keys2) : wk && !wk.x ? mv2(addDays(d, -7)) : null;
     return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${pill(wv && v != null ? v / wv - 1 : null, CMP_DAY)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td>${pill(wg && g != null ? g / wg - 1 : null, CMP_DAY)}</td></tr>`;
   };
   const tE = H[S.today];
@@ -1262,7 +1268,8 @@ $('#tabs').addEventListener('click', ev => { const b = ev.target.closest('button
 $('#rng').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.rng = +b.dataset.n; ls.set(LS.rng, S.rng); render(); });
 $('#btnHours').addEventListener('click', () => { S.allHours = !S.allHours; render(); });
 $('#mxM').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.cm = b.dataset.m; ls.set(LS.cm, S.cm); render(); });
-$('#dM').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.cmp = b.dataset.m; ls.set(LS.cmp, S.cmp); render(); });
+$('#dM').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.cmp = b.dataset.m; ls.set(LS.cmp, S.cmp); S.de = ''; ls.set(LS.de, ''); render(); });
+$('#dE').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; S.de = b.dataset.m; ls.set(LS.de, S.de); render(); });
 $('#mxBody').addEventListener('click', ev => {
   const tr = ev.target.closest('tr[data-k]'); if (!tr) return;
   const k = tr.dataset.k;
