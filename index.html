@@ -659,7 +659,8 @@ async function load(first) {
     if (other) { S.busy = false; S.today = null; return load(true); }   // stigli redovi drugog datuma = ponoc
     S.err = null;
     if (S.last && S.last._r) putHist(S.today, summary(S.last, S.day, true));
-    if (KS.src !== 'm') learnK();
+    try { if (await loadAnchor()) { RC.k = ''; KE = null; } } catch (e) {}   // sidro na klon slot (svakih 10 min); pad = ostaje naucena konstanta
+    if (!anchorK() && KS.src !== 'm') learnK();
     saveDays(); saveHist(); render();
     // juce (jednom): kriva za poredjenje + dnevni zapis
     const yd = prevDate(S.today);
@@ -687,7 +688,7 @@ async function load(first) {
         if (e && (e.hr || e.hx || (e.so != null && !e.se && CV[d] && CV[d][1] && CV[d][2]))) continue;
         try { await loadHourly(d); k++; } catch (e) { break; }
       }
-      if (k) { learnK(); render(); }
+      if (k) { if (!anchorK()) learnK(); render(); }
     }
   } catch (e) {
     S.err = e; render();
@@ -736,7 +737,43 @@ const refKeys = () => allKeys().filter(k => k !== 'bots' && k !== 'direct');
 // izvora; posetilac sa dva referera brojan dvaput, ~1,5 % vise). Da obe strane pokazu ISTI broj, zbirovi klasa (Organic, Partneri,
 // Referisane) se svode na klonovu skalu odnosom naucenim iz uvezene istorije; pojedinacni izvori (Google…) se ne diraju — ni racunar ih ne skalira.
 let KS = { s: 1, p: 1 };
+// SIDRO NA KLON SLOT (P3, 4.10.2026; racunar live.fresh_now radi isto): klonova satna kriva DANAS (?hourly=danas, 3 KB) u poslednjem slotu
+// hh:x5 prema zbiru po refereru iz binova u istom minutu = odnos dva brojaca danas -> Organic / Partneri / Referisane „do sada" na klonovoj
+// skali kao na racunaru (konstanta naucena na proslim danima je bila 0,9884 prema 0,9909 danas = +0,2 %). Osvezava se svakih 10 min.
+const KA = { d: null, m: null, s: null, p: null, at: 0, slot: -1 };
+async function loadAnchor() {
+  if (!CFG || !S.today || !S.day || S.hold) return false;
+  const slot = Math.floor((S.last ? S.last.tsm - 5 : -10) / 10);
+  if (KA.d === S.today && KA.slot === slot && Date.now() - KA.at < 1800000) return false;
+  const q = new URLSearchParams({ access: CFG.t, hourly: S.today });
+  const r = await fetch(CFG.u + (CFG.u.includes('?') ? '&' : '?') + q, { cache: 'no-store' });
+  if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+  let last = null;
+  for (const line of (await r.text()).split('\n')) {
+    const i = line.indexOf(' '); if (i < 19) continue;
+    const ts = line.slice(0, i); let h;
+    try { h = JSON.parse(line.slice(i + 1)).hourly; } catch (e) { continue; }
+    if (!h || ts.slice(0, 10) !== S.today) continue;
+    const hm = (+ts.slice(11, 13)) * 60 + (+ts.slice(14, 16)); if (hm < 30) continue;
+    const sp = h.suminp == null || h.suminp === '' ? null : num(h.suminp);
+    if (sp != null && (!last || hm > last.m)) last = { m: hm, h: num(h.sumin), p: sp };
+  }
+  KA.d = S.today; KA.slot = slot; KA.at = Date.now();
+  if (!last || last.m > (S.last ? S.last.tsm : 0)) return false;
+  const sRef = valAt(S.day, last.m, x => x[6] ? cum(x[6], SEARCH) : null), pRef = valAt(S.day, last.m, x => x[6] ? cum(x[6], partKeys()) : null);
+  const ok = v => v > 0.9 && v < 1.1;
+  if (!(sRef > 0 && pRef > 0)) return false;
+  const s = (last.h - last.p) / sRef, p = last.p / pRef;
+  if (!ok(s) || !ok(p)) return false;
+  KA.m = last.m; KA.s = s; KA.p = p;
+  return true;
+}
+function anchorK() {
+  if (KA.d === S.today && KA.s && Date.now() - KA.at < 1800000) { KS = { s: KA.s, p: KA.p, src: 'h' }; return true; }
+  return false;
+}
 function learnK() {
+  if (anchorK()) return;
   const rs = [], rp = [], pk = partKeys(), last = a => a.reduce((q, x) => x != null ? x : q, null);
   const ok = v => v > 0.9 && v < 1.1;
   // (1) ISTI MINUT istog dana: klonova kriva (uvoz sa racunara) prema zbiru po refereru iz redova izvora, za dane koje telefon ima
@@ -890,12 +927,53 @@ function cmpPts(back, which) {
   const k = cvK(back, which);
   return arr.map((v, i) => [35 + 10 * i, v == null ? null : v * k]).filter(p => p[1] != null && p[0] < first).concat(own);
 }
-// grupa (ili zbir grupa) izvora u minutu m dana `back`: binovi telefona; gde ih nema, zbir dana po grupi x oblik krive sa racunara
-// (organic i direktno = oblik krive pretrazivaca S, partneri = oblik P = referisane - organic) — procena
+// SOPSTVENI TIKOVI RACUNARA po grupi (uvoz cv[d][5] = {gt: [[slot, minut]], g: {grupa: [[slot, vrednost]]}}) — isti podaci kao desktop
+// sources.own_ratios; pravilo dana kao sources.tick_at: tacke sa obe strane u ±25 min -> linearno, jedna strana u ±6 min -> ta tacka, inace null
+const OWNC = {};
+function ownDay(d) {
+  if (d in OWNC) return OWNC[d];
+  const cv = CV[d], raw = cv && cv[5];
+  if (!raw || !raw.gt || !raw.g) return (OWNC[d] = null);
+  const tm = {}; for (const [i, mm] of raw.gt) tm[i] = mm;
+  const g = {};
+  for (const k of Object.keys(raw.g)) g[k] = raw.g[k].filter(p => tm[p[0]] != null).map(p => [tm[p[0]], p[1]]).sort((a, b) => a[0] - b[0]);
+  return (OWNC[d] = { g });
+}
+function tickAt(pts, m) {
+  if (!pts || !pts.length) return null;
+  let a = null, b = null;
+  for (const p of pts) { if (p[0] <= m) a = p; else { b = p; break; } }
+  if (a && b && m - a[0] <= 25 && b[0] - m <= 25) return a[1] + (b[1] - a[1]) * (m - a[0]) / ((b[0] - a[0]) || 1);
+  if (a && m - a[0] <= 6) return a[1];
+  if (b && b[0] - m <= 6) return b[1];
+  return null;
+}
+// zbir grupa iz sopstvenih tikova u minutu m (grupa bez ijednog tika tog dana = 0; grupa bez tacke u prozoru = null -> dan se preskace)
+function ownAt(d, m, keys) {
+  const o = ownDay(d); if (!o) return null;
+  let s = 0;
+  for (const k of keys) { if (!(k in o.g)) continue; const v = tickAt(o.g[k], m); if (v == null) return null; s += v; }
+  return s;
+}
+const pkEq = keys => { const pk = partKeys(); return keys.length === pk.length && keys.every(k => pk.includes(k)); };
+const isClass = (key, keys) => !keys || key === 'h' || key === 's' || key === 'search' || key === 'part' || keys === SEARCH || pkEq(keys) || keys.length === SEARCH.length + partKeys().length;
+// grupa u minutu m dana `back` SAMO iz sopstvenih tacaka (binovi telefona ili tikovi racunara) — bez proxy-ja; klase (organic/partneri/referisane)
+// nemaju sopstvene tikove po ovom putu (racunar ih vodi po klonovoj krivoj), za njih = binovi ili null
+function grpOwnAt(back, m, keys) {
+  const day = cmpDay(back), v = valAt(day, m, x => x[6] ? kcum(x[6], keys) : null);
+  if (v != null) return v;
+  if (keys === SEARCH || pkEq(keys) || keys.length === SEARCH.length + partKeys().length) return null;
+  const d = addDays(S.today, -back), e = H[d];
+  if (!e || e.x) return null;
+  return ownAt(d, m, keys);
+}
+// grupa (ili zbir grupa) izvora u minutu m dana `back`: binovi telefona; zatim sopstveni tikovi racunara (uvoz); gde ni njih nema, zbir
+// dana po grupi x oblik krive sa racunara (organic i direktno = oblik krive pretrazivaca S, partneri = oblik P = referisane - organic) — procena
 function grpAt(back, m, keys) {
   const day = cmpDay(back), v = valAt(day, m, x => x[6] ? kcum(x[6], keys) : null);
   if (v != null) return v;
   const d = addDays(S.today, -back), e = H[d], cv = CV[d];
+  if (e && !e.x && keys !== SEARCH && !pkEq(keys) && keys.length !== SEARCH.length + partKeys().length) { const ov = ownAt(d, m, keys); if (ov != null) return ov; }
   // direktni: kriva sa racunara (nasi tikovi, uvoz) pre proxy-ja preko organika — oblik direktnih (bot ravan preko dana) nije oblik
   // organika (SAD vece); 3.10.2026: proxy je precenjivao sumnjive direktne ~13 % dok telefon nema svojih binova za taj dan
   if (keys.length === 1 && keys[0] === 'direct' && e && !e.x && e.g && cv && cv[3]) { const dv = cvAtGap(d, m, 3); if (dv != null) return dv; }
@@ -923,13 +1001,20 @@ function mxRatio(key, keys, m) {
   const ck = S.today + '|' + m + '|' + (S.last ? S.last.at : 0) + '|' + Object.keys(H).length;
   if (RC.k !== ck) { RC.k = ck; RC.m = {}; }
   if (key in RC.m) return RC.m[key];
-  const rs = [];
-  for (let b = 1; b <= 14 && rs.length < 7; b++) {
-    const d = addDays(S.today, -b), e = H[d];
-    if (!e || e.x || /outage|partial|dst/.test(e.f || '')) continue;
-    const end = mxEnd(key, keys, d), a = mxAt(keys, b, m);
-    if (end > 0 && a > 0 && end >= a) rs.push(end / a);
-  }
+  const ratios = at => {
+    const rs = [];
+    for (let b = 1; b <= 14 && rs.length < 7; b++) {
+      const d = addDays(S.today, -b), e = H[d];
+      if (!e || e.x || /outage|partial|dst/.test(e.f || '')) continue;
+      const end = mxEnd(key, keys, d), a = at(b);
+      if (end > 0 && a > 0 && end >= a) rs.push(end / a);
+    }
+    return rs;
+  };
+  // pojedinacan izvor: prvo dani sa SOPSTVENIM tackama (binovi / tikovi racunara, >= 3 dana — kao racunar sources.own_ratios), tek onda proxy
+  // (zbir dana x oblik klase); klase (posete, referisane, organic, partneri) = klonova kriva kao i do sada
+  let rs = isClass(key, keys) ? ratios(b => mxAt(keys, b, m)) : ratios(b => grpOwnAt(b, m, keys));
+  if (!isClass(key, keys) && rs.length < 3) rs = ratios(b => mxAt(keys, b, m));
   return RC.m[key] = rs.length >= 3 ? median(rs) : null;
 }
 function mxProj(key, keys, now, m) {
@@ -1075,7 +1160,7 @@ function render() {
 
 // OCENA DANA — ista racunica kao na racunaru (sources._level_at + compute): nivo = medijana 7 prethodnih CISTIH dana x faktor dana u
 // nedelji (8 nedelja, 0,85–1,15); sumnjivi direktni = projekcija direktnih − nivo direktnih; ocena = (projekcija − sumnjivi) / nivo − 1
-const BADF = /bot|outage|partial/;
+const BADF = /bot|outage|partial|dst/;   // + dst (pomeranje sata) kao na racunaru (audit 4.10.2026)
 // cisti dani za nivo: bez oznake bot/ispad/nepotpun (oznake stizu uvozom sa racunara); dan koji telefon sam skuplja oznaku nema ->
 // bot dan = direktni iznad uobicajenog (medijana 7 prethodnih cistih dana) za >= 10 % poseta, isto pravilo kao na racunaru
 function cleanDays() {
