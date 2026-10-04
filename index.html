@@ -941,10 +941,49 @@ function projWhy(m) {
   const n = Object.keys(H).filter(d => d < S.today && !H[d].x && H[d].c != null).length;
   return n < 3 ? 'projekcija dana stiže kad telefon uveze istoriju sa računara (u Pulsu na računaru: dugme telefona u zaglavlju, pa skeniraj QR)' : m < 180 ? 'projekcija dana od 03:00' : 'projekcija dana: nema dovoljno dana za poređenje';
 }
-// posete (kao na racunaru) idu preko referisanih: sada + (projekcija referisanih - referisane sada) x danasnji odnos posete / referisane
+// posete (kao na racunaru) idu preko referisanih: sada + (projekcija referisanih - referisane sada) x danasnji odnos posete / referisane x k
+// k (audit 4.10.2026, racunar projection.rem_ratio_k) = medijana 7 od 14 dana [ ((C_kraj − C_m) / (H_kraj − H_m)) / (C_m / H_m) ] u istom
+// minutu: odnos posete/referisane OSTATKA dana je nizi od odnosa do sada (direktni/bot stizu ravno, referisani uvece) -> bez k je
+// projekcija u 10 h bila +7,8 %, u 12 h +5,8 %; ispod 3 dana sa podacima k = 1
+const RK = { k: '', v: 1 };
+// C u minutu m dana `back` iz SOPSTVENIH tacaka: binovi telefona (uv) ili sirovi tikovi racunara iz uvoza (CV[d][4], tacka u ±2 slota = 25 min,
+// kao racunar) — NE kriva [0], koja je za dane bez punih tikova klon H x f (oblik referisanih) pa bi k ispao tacno 1
+function cOwnAt(back, m) {
+  const day = cmpDay(back), v = valAt(day, m, cOf(day));
+  if (v != null) return v;
+  const cv = CV[addDays(S.today, -back)], arr = cv && cv[4];
+  if (!arr || m < 35) return null;
+  const f = (m - 35) / 10, i0 = Math.floor(f);
+  let lo = i0, hi = i0 + 1;
+  while (lo >= 0 && lo >= i0 - 2 && arr[lo] == null) lo--;
+  if (lo >= 0 && arr[lo] != null && lo === f) return arr[lo];
+  while (hi < arr.length && hi <= i0 + 3 && arr[hi] == null) hi++;
+  if (lo < 0 || lo < i0 - 2 || hi >= arr.length || hi > i0 + 3 || arr[lo] == null || arr[hi] == null) return null;
+  return arr[lo] + (arr[hi] - arr[lo]) * (f - lo) / (hi - lo);
+}
+function remK(m) {
+  const ck = S.today + '|' + Math.round(m) + '|' + Object.keys(H).length;
+  if (RK.k === ck) return RK.v;
+  const ks = [];
+  for (let b = 1; b <= 14 && ks.length < 7; b++) {
+    const d = addDays(S.today, -b), e = H[d];
+    if (!e || e.x || /outage|partial|dst/.test(e.f || '')) continue;
+    const cE = e.c, hE = classEnd(d, 'h'), cM = cOwnAt(b, m), hM = dayAt(b, m, 1);
+    if (!(cE > cM && hE > hM && cM > 0 && hM > 0)) continue;
+    ks.push(((cE - cM) / (hE - hM)) / (cM / hM));
+  }
+  RK.k = ck; RK.v = ks.length >= 3 ? median(ks) : 1;
+  return RK.v;
+}
 function projC(L, cNow) {
   const hNow = kcum(L.g, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm);
-  return pH && hNow > 0 ? cNow + (pH - hNow) * (cNow / hNow) : null;
+  return pH && hNow > 0 ? cNow + (pH - hNow) * (cNow / hNow) * remK(L.tsm) : null;
+}
+// normalan odnos posete / referisane = medijana C_kraj / H_kraj poslednjih 7 CISTIH dana (racunar: projection.factor_f)
+function mixF() {
+  const fs = [];
+  for (const d of cleanDays().reverse()) { const e = H[d], h = classEnd(d, 'h'); if (e.c > 0 && h > 0) { fs.push(e.c / h); if (fs.length >= 7) break; } }
+  return fs.length >= 3 ? median(fs) : null;
 }
 const ck = k => `<span class="ck${k === 't' ? '' : ' ' + k}"></span>`;
 const pp = (a, b) => a == null || b == null ? '' : `<span class="dl ${a - b >= .01 ? 'up' : a - b <= -.01 ? 'down' : 'flat'}">${a > b ? '+' : ''}${((a - b) * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 }).replace('-', '−')} pp</span>`;
@@ -1089,13 +1128,22 @@ function srcStat(key, keys, now, m) {
   return out;
 }
 const statPill = (st, bot) => st.dev == null ? '' : bot ? `<span class="dl bot"><i>⚠</i>${st.dev > 0 ? '+' : '−'}${Math.abs(st.dev * 100).toLocaleString('de-DE', { maximumFractionDigits: Math.abs(st.dev) < .1 ? 1 : 0 })}%</span>` : pill(st.dev, st.early ? 9 : st.thr);
+// OCENA DANA (audit 4.10.2026, isto kao racunar sources.compute): nivo Posete = nivo REFERISANIH (bot ne utice) x F (normalan odnos
+// posete/referisane, cisti dani); cista projekcija = projekcija referisanih x F (c_mix); sumnjivi (projekcija) = projekcija poseta − c_mix.
+// Stari racun (nivo iz serije poseta bez bot dana) je od 21.9 stajao na danima <= 20.9 -> svaki dan „Dobar/Odlican". Bez 3 cista dana ili
+// bez nivoa referisanih = stari racun (rezerva).
 function verdict(L, proj) {
-  const lt = proj ? lvl('c', e => e.c, true) : null;
+  if (!proj) return null;
+  const F = mixF(), lh = F ? lvl('h', (e, d) => classEnd(d, 'h'), false) : null;
+  const hNow = kcum(L.g, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm), mix = lh && lh.L && pH ? pH * F : null;
+  const lt = mix ? { L: lh.L * F, noise: lh.noise } : lvl('c', e => e.c, true);
   if (!lt || !lt.L) return null;
-  const ld = lvl('direct', e => e.g ? e.g.direct : null, true), lvD = ld ? ld.L : null, pD = mxProj('direct', ['direct'], L.g.direct || 0, L.tsm), sus = pD && lvD ? Math.max(0, pD - lvD) : 0;
+  let sus;
+  if (mix) sus = Math.max(0, proj - mix);
+  else { const ld = lvl('direct', e => e.g ? e.g.direct : null, true), lvD = ld ? ld.L : null, pD = mxProj('direct', ['direct'], L.g.direct || 0, L.tsm); sus = pD && lvD ? Math.max(0, pD - lvD) : 0; }
   const rH = mxRatio('h', refKeys(), L.tsm), share = rH ? Math.min(1, 1 / rH) : 0;
   const thr = Math.max(0.06, Math.min(0.35, Math.hypot(lt.noise, 0.075 * (1 - share)))), early = share < 0.18;
-  const clean = Math.max(0, proj - sus), dev = clean / lt.L - 1;
+  const clean = mix ? mix : Math.max(0, proj - sus), dev = clean / lt.L - 1;
   const title = early ? 'Rano je za ocenu dana' : dev >= 1.6 * thr ? 'Odličan dan' : dev >= thr ? 'Dobar dan' : dev <= -1.6 * thr ? 'Loš dan' : dev <= -thr ? 'Slabiji dan' : 'Običan dan';
   return { dev, clean, sus, level: lt.L, thr, early, title, cls: early ? '' : dev >= thr ? 'up' : dev <= -thr ? 'down' : '' };
 }
