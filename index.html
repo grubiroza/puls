@@ -15,7 +15,7 @@
   --gold:#d4a542;--green:#4cc38a;--red:#e5484d;--amber:#f5b53f;--grid:rgba(255,255,255,.07);
   --s-search:#b98a2b;--s-google:#4285f4;--s-bing:#008373;--s-duckduckgo:#de5833;--s-yahoo:#6001d2;--s-direct:#9085e9;--s-x:#d55181;--s-trade:#2a9db8;--s-tail:#6b7280;
   --up-ink:#5fd39c;--down-ink:#ff7a7d;--up-soft:rgba(76,195,138,.13);--down-soft:rgba(229,72,77,.15);
-  --up:#4cc38a;--down:#e5484d;--up-on:#06150e;--down-on:#fff;--blue:#7ea8ff;
+  --up:#4cc38a;--down:#d9363c;--up-on:#06150e;--down-on:#fff;--blue:#7ea8ff;   /* --down #d9363c: beli tekst na punom crvenom pilu AA (bilo 3,9) */
   --ff:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
 :root[data-theme="light"]{
@@ -93,7 +93,10 @@ tr.per td{background:var(--card-2)}tr.per.last td{border-bottom:2px solid var(--
 .vd.up{color:var(--up-ink)}.vd.down{color:var(--down-ink)}.vd span{font-size:12px;font-weight:400;color:var(--text-2);flex-basis:100%}
 .pb{height:4px;border-radius:2px;background:var(--line);margin-top:10px;overflow:hidden}.pb i{display:block;height:100%;width:0;background:var(--gold);border-radius:2px}
 .pl{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2)}
-.pl[data-k]{cursor:pointer}.pl .sw{margin-right:0}.pl.dt{flex-basis:100%}
+.pl[data-k]{cursor:pointer;min-height:32px;padding:4px 9px;border-radius:999px;background:var(--card-2);border:1px solid var(--line)}.pl .sw{margin-right:0}.pl.dt{flex-basis:100%}   /* cip = dodirna meta >= 32 px (bilo 20 px, audit 4.10.2026) */
+.ct h2{display:flex;align-items:center;gap:6px}
+.ibi{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card-2);color:var(--text-2);font:700 11px/1 var(--ff);display:inline-grid;place-items:center;cursor:pointer;padding:0;flex:none}
+#shBody p{margin:8px 0;font-size:13.5px;line-height:1.45;color:var(--text)}#shBody p b{font-weight:650}
 .kv .pb{padding:0;height:4px;border-radius:2px;background:var(--line);margin-top:6px}
 .mx td:first-child{font-size:12.5px}.mx .dl{padding:2px 5px;gap:2px}
 .w58{width:58px}.w108{width:108px}.w54{width:54px}.w38{width:38px}.w44{width:44px}.w56{width:56px}.w48{width:48px}.w62{width:62px}.w50{width:50px}
@@ -1148,8 +1151,7 @@ function render() {
   if (S.hold) L = Object.assign({}, L, { tsm: 1439 });      // poredjenja sa prethodnim danom = kraj dana
   const d = new Date(S.today + 'T12:00:00');
   $('#hDate').textContent = d.toLocaleDateString('sr-Latn', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hms(L.at).slice(0, 5);
-  const ons = S.rows.slice(-3).map(x => x.on).filter(x => x != null).sort((a, b) => a - b);
-  const on = ons.length ? ons[ons.length >> 1] : L.on;     // medijana poslednja 3 reda
+  const on = L.on;     // JEDAN broj online = poslednji red (klon JSON, +-1 %/min), isti kao na racunaru; medijana 3 reda je bila za cirby doba (audit 4.10.2026)
   $('#onN').textContent = N(on); $('#onPill').classList.toggle('off', age > 300 || on == null);
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab));
   $('#tSada').hidden = S.tab !== 'sada'; $('#tDan').hidden = S.tab !== 'dan'; $('#tDani').hidden = S.tab !== 'dani';
@@ -1266,7 +1268,7 @@ function renderSada({ L, on, cNow, cEst }) {
   const ob = $('#oBy');
   if (L.og) {
     const tot = Object.values(L.og).reduce((s, v) => s + v, 0) || 1;
-    const items = tableRows().filter(r => r[0] !== 'search' && r[0] !== 'part').map(([key, label, , keys, c]) => [label, c, cum(L.og, keys)]).filter(x => x[2] > 0).sort((a, b) => b[2] - a[2]);
+    const items = tableRows().filter(r => r[0] !== 'search' && r[0] !== 'part').map(([key, label, , keys, c]) => [label, c, cum(L.og, keys)]).filter(x => x[2] > 0).sort((a, b) => (b[0] === 'Google') - (a[0] === 'Google') || b[2] - a[2]);   // Google prvi, ostali po broju — kao kartica Online sada na racunaru
     ob.hidden = !items.length; ob.innerHTML = items.map(([l, c, v]) => `<span class="pl">${sw(c)}${l} <b class="num">${N(v)}</b> <span class="dt">${P(100 * v / tot, 0)}</span></span>`).join('');
   } else ob.hidden = true;
   const t1 = L.at, onPts = S.rows.filter(x => x.on != null && x.at >= t1 - 7200).map(x => [x.at, x.on]);
@@ -1475,6 +1477,34 @@ function openDay(d) {
     ${e.r && e.r.length ? `<h3>Najjači referenti</h3><table><colgroup><col><col class="w56"></colgroup><thead><tr><th>referer</th><th>posete</th></tr></thead><tbody>${e.r.map(x => `<tr><td>${esc(x[0])}</td><td class="num">${N(x[1])}</td></tr>`).join('')}</tbody></table>` : ''}`);
   fill('shDay', el => lineChart(el, [{ pts, color: 'var(--gold)', w: 2.2, fill: true }], { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 110, top: K }));
 }
+
+// ---------------------------------------------------------------- ⓘ po kartici (audit 4.10.2026: racunar ima objasnjenja u title atributima, telefon nema hover)
+const INFO = {
+  'Puls dana': `<p><b>Veliki broj</b> = očekivano poseta do kraja dana: do sada + ostatak referisanih (projekcija iz oblika poslednjih 7 dana) × današnji odnos poseta/referisane × k (koliko je taj odnos u ostatku dana obično niži — direktni stižu ravno preko dana, referisani uveče).</p>
+<p><b>Ocena dana</b> poredi projekciju BEZ sumnjivih direktnih (= projekcija referisanih × normalan odnos poseta/referisane iz čistih dana) sa očekivanim (očekivane referisane: medijana 7 dana × dan u nedelji, × isti odnos). Sumnjivi direktni = direktno iznad uobičajenog za ovo doba dana (od 20.9 skrejper bez referera). Pun pil / „Dobar dan" = razlika preko praga (šum nivoa + nesigurnost projekcije).</p>
+<p><b>Pilovi</b>: vs očekivano = ocena dana; juče / pre 7 d = posete do sada prema istom dobu tog dana (sirovo, sa botom). <b>Čipovi</b> = projekcija izvora prema njegovom očekivanom; dodir otvara detalje. Traka = koliki je deo projekcije već stigao.</p>`,
+  'Online sada': `<p>Aktivni posetioci u poslednjih 60 min (klon JSON, isti broj kao na računaru), uz 15 i 5 min. <b>Po izvoru</b> = iz istog reda, tačno (nije procena). Grafik = online po minutu u poslednja 2 h.</p>`,
+  'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs juče</b> = do sada prema istom dobu juče; pun pil preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Dodir na red = detalji izvora.</p>`,
+  'Dolasci po 10 min': `<p>Novi posetioci po 10-minutnom prozoru u poslednja 2 h: organic (pretraživači), partneri (trade + sopstvene grupe), direktno (bez referera; od 20.9 pretežno skrejper).</p>`,
+  'Referenti': `<p>Pojedinačni refereri: dolasci u poslednjih 30 min (prva kolona) i ukupno danas. Bez direktnih i botova.</p>`,
+  'Poređenje dana': `<p>Danas prema juče / pre 7 / pre 14 dana. <b>isto doba</b> = do sada prema istom minutu tog dana; <b>ceo dan</b> = projekcija prema celom tom danu. Zeleno = danas više, crveno = manje; pun pil = razlika preko 7 % (Bing, DDG, Yahoo, Direktno 15 %). Sitno ispod broja = projekcija kraja dana.</p>
+<p><b>Referisane</b> = Organic + Partneri (bez direktnih i botova) — čisto poređenje i na bot dan. Za dane koje izvor nema, krive stižu uvozom sa računara (Podešavanje).</p>`,
+  'Tok dana': `<p>Kumulativne krive dana: danas (zlatno) prema juče, pre 7 i pre 14 dana; mera po izboru (posete / referisane / organic).</p>`,
+  'Po satu': `<p>Prirast po satu danas i istih sati pre 1 / 7 / 14 dana; tekući sat se poredi sa istim delom tog sata. Pun pil = preko 15 % (pojedinačan sat je šumovit).</p>`,
+  'Kvalitet po izvoru': `<p>Udeo novih posetilaca i mobilnih u posetama izvora + pregledi strana po poseti (ulasci + klikovi po stranama, bez botova; nova mera od 3.10, poređenje sa GA4 u toku).</p>`,
+  'Partneri': `<p>Posete partnera do sada (pil = prema istom dobu pre 7 dana) i po partneru: danas, dolasci u 30 min, udeo novih.</p>`,
+  'Botovi': `<p>Zahtevi (raw) deklarisanih botova po imenu: danas, juče i medijana 7 dana; stubići = najjači bot po danu. Googlebot = koliko nas Google crawluje.</p>`,
+  'Po danu': `<p>Redovi <b>7–365 d</b> = prosek po danu u periodu (do juče) i pil prema prethodnom periodu iste dužine (≈ = prethodni period nepotpun). Dnevni redovi: izabrana mera + jedan nivo dublje (posete → referisane → organic → Google); pil = prema istom danu nedelju ranije („danas" = do sada prema istom dobu).</p>
+<p>Stubići: svetli vrh = direktni, obris = danas do sada, crtkana linija = medijana. Dodir na dan = detalji.</p>`,
+  'Istorija': `<p>Zbirovi po mesecu (… = nepotpun mesec), najbolji dan i mesec, profil nedelje (medijana poseta po danu u nedelji, 12 nedelja; obris = današnji dan).</p>`
+};
+document.querySelectorAll('#app .card .ct h2').forEach(h => {
+  const key = h.id === 'hTitle' ? 'Po satu' : h.textContent.trim();
+  if (!INFO[key]) return;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'ibi'; b.textContent = 'i'; b.setAttribute('aria-label', 'Objašnjenje: ' + key);
+  b.addEventListener('click', ev => { ev.stopPropagation(); openSheet(key, INFO[key]); });
+  h.appendChild(b);
+});
 
 // ---------------------------------------------------------------- dogadjaji
 $('#btnRef').addEventListener('click', () => load(!S.today));
