@@ -15,7 +15,7 @@
   --gold:#d4a542;--green:#4cc38a;--red:#e5484d;--amber:#f5b53f;--grid:rgba(255,255,255,.07);
   --s-search:#b98a2b;--s-google:#4285f4;--s-bing:#008373;--s-duckduckgo:#de5833;--s-yahoo:#6001d2;--s-direct:#9085e9;--s-x:#d55181;--s-trade:#2a9db8;--s-tail:#6b7280;
   --up-ink:#5fd39c;--down-ink:#ff7a7d;--up-soft:rgba(76,195,138,.13);--down-soft:rgba(229,72,77,.15);
-  --up:#4cc38a;--down:#d9363c;--up-on:#06150e;--down-on:#fff;--blue:#7ea8ff;   /* --down #d9363c: beli tekst na punom crvenom pilu AA (bilo 3,9) */
+  --up:#4cc38a;--down:#d9363c;--up-on:#06150e;--down-on:#fff;--blue:#7ea8ff;--info-ink:#9bbcff;--info-soft:rgba(126,168,255,.13);--info-on:#0e1014;   /* --down #d9363c: beli tekst na punom crvenom pilu AA (bilo 3,9) */
   --ff:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
 :root[data-theme="light"]{
@@ -23,7 +23,7 @@
   --gold:#b8891f;--green:#1f9d63;--red:#d4383d;--amber:#c98a12;--grid:rgba(0,0,0,.07);
   --s-search:#d2a441;--s-google:#8ab4f8;--s-bing:#1fb8a6;--s-duckduckgo:#f0754f;--s-yahoo:#a066f0;--s-direct:#4a3aa7;--s-x:#d55181;--s-trade:#0093b8;--s-tail:#9aa0ab;
   --up-ink:#0f7a49;--down-ink:#c02a30;--up-soft:rgba(31,157,99,.12);--down-soft:rgba(212,56,61,.11);
-  --up:#1f9d63;--down:#c62f34;--up-on:#06150e;--down-on:#fff;--blue:#3b6fd6;
+  --up:#1f9d63;--down:#c62f34;--up-on:#06150e;--down-on:#fff;--blue:#3b6fd6;--info-ink:#2f5fc4;--info-soft:rgba(59,111,214,.10);--info-on:#fff;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -87,10 +87,20 @@ tr.per td{background:var(--card-2)}tr.per.last td{border-bottom:2px solid var(--
 .cv{margin-right:4px}
 .proj{font-size:14px;color:var(--text-2);margin-top:6px}.proj b{color:var(--text);font-size:18px;font-weight:700}
 .plr{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px}
-.hero.up{background:linear-gradient(160deg,var(--up-soft),var(--card) 65%);border-color:var(--up-soft)}
-.hero.down{background:linear-gradient(160deg,var(--down-soft),var(--card) 65%);border-color:var(--down-soft)}
-.vd{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;margin-bottom:10px;font-size:16px;font-weight:700}
-.vd.up{color:var(--up-ink)}.vd.down{color:var(--down-ink)}.vd span{font-size:12px;font-weight:400;color:var(--text-2);flex-basis:100%}
+/* ocena dana = boja kartice i kruga, 5 nivoa kao na racunaru (P6b 4.10.2026): boost/up zeleno, normal plavo, down/drop crveno, early sivo */
+.hero.up,.hero.boost{background:linear-gradient(160deg,var(--up-soft),var(--card) 65%);border-color:var(--up-soft)}
+.hero.boost{background:linear-gradient(160deg,var(--up-soft),var(--up-soft) 28%,var(--card) 80%);border-color:var(--up)}
+.hero.down,.hero.drop{background:linear-gradient(160deg,var(--down-soft),var(--card) 65%);border-color:var(--down-soft)}
+.hero.drop{background:linear-gradient(160deg,var(--down-soft),var(--down-soft) 28%,var(--card) 80%);border-color:var(--down)}
+.hero.normal{background:linear-gradient(160deg,var(--info-soft),var(--card) 55%);border-color:var(--info-soft)}
+.vd{display:flex;align-items:center;flex-wrap:wrap;gap:2px 8px;margin-bottom:10px;font-size:16px;font-weight:700;--vc:var(--blue);--vsoft:var(--info-soft);--von:var(--info-on)}
+.vd.up,.vd.boost{color:var(--up-ink);--vc:var(--up);--vsoft:var(--up-soft);--von:var(--up-on)}
+.vd.down,.vd.drop{color:var(--down-ink);--vc:var(--down);--vsoft:var(--down-soft);--von:var(--down-on)}
+.vd.early{--vc:var(--text-3);--vsoft:transparent;--von:var(--card)}
+.vd.normal .vdd{color:var(--info-ink)}
+.vd span{font-size:12px;font-weight:400;color:var(--text-2);flex-basis:100%}
+.vdi{width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;font-size:12px;line-height:1;font-style:normal;background:var(--vc);color:var(--von);box-shadow:0 0 0 4px var(--vsoft);flex:none;margin:3px 4px 3px 2px}
+.vd.boost .vdi,.vd.drop .vdi{box-shadow:0 0 0 4px var(--vsoft),0 0 14px var(--vc)}
 .pb{height:4px;border-radius:2px;background:var(--line);margin-top:10px;overflow:hidden}.pb i{display:block;height:100%;width:0;background:var(--gold);border-radius:2px}
 .pl{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2)}
 .pl[data-k]{cursor:pointer;min-height:32px;padding:4px 9px;border-radius:999px;background:var(--card-2);border:1px solid var(--line)}.pl .sw{margin-right:0}.pl.dt{flex-basis:100%}   /* cip = dodirna meta >= 32 px (bilo 20 px, audit 4.10.2026) */
@@ -1232,7 +1242,8 @@ function verdict(L, proj) {
   const thr = Math.max(0.06, Math.min(0.35, Math.hypot(lt.noise, 0.075 * (1 - share)))), early = share < 0.18;
   const clean = mix ? mix : Math.max(0, proj - sus), dev = clean / lt.L - 1;
   const title = early ? 'Rano je za ocenu dana' : dev >= 1.6 * thr ? 'Odličan dan' : dev >= thr ? 'Dobar dan' : dev <= -1.6 * thr ? 'Loš dan' : dev <= -thr ? 'Slabiji dan' : 'Običan dan';
-  return { dev, clean, sus, level: lt.L, thr, early, title, cls: early ? '' : dev >= thr ? 'up' : dev <= -thr ? 'down' : '' };
+  const status = early ? 'early' : dev >= 1.6 * thr ? 'boost' : dev >= thr ? 'up' : dev <= -1.6 * thr ? 'drop' : dev <= -thr ? 'down' : 'normal';
+  return { dev, clean, sus, level: lt.L, thr, early, title, status, cls: status };
 }
 // pokretaci ocene dana: isti izvori i redosled kao cipovi uz ocenu na racunaru
 const DRV = [['google', 'Google'], ['search', 'Organic'], ['part', 'Partneri'], ['direct', 'Direktno'], ['bing', 'Bing'], ['duckduckgo', 'DDG']];
@@ -1250,7 +1261,8 @@ function renderSada({ L, on, cNow, cEst }) {
     return st && st.dev != null ? `<span class="pl" data-k="${k}">${sw(def[4])}${lbl} ${statPill(st, k === 'direct' && vd.sus > 0)}</span>` : '';
   }).join('') : '';
   dr.hidden = !chips; dr.innerHTML = chips ? '<span class="pl dt">izvori: projekcija prema očekivanom · dodir = detalji</span>' + chips : '';
-  if (vd) ve.innerHTML = `${vd.title}${vd.early ? '' : ` ${vd.dev > 0 ? '+' : '−'}${P(Math.abs(vd.dev) * 100, Math.abs(vd.dev) >= .0995 ? 0 : 1)}`}<span>projekcija ${N(vd.clean)}${vd.sus > 0 ? ' bez ≈ ' + N(vd.sus) + ' sumnjivih direktnih' : ''} · očekivano ${N(vd.level)}</span>`;
+  const VDI = { boost: '▲', up: '▲', normal: '≈', down: '▼', drop: '▼', early: '◔' };   // krug sa ikonom kao na racunaru (#vdIc)
+  if (vd) ve.innerHTML = `<i class="vdi" aria-hidden="true">${VDI[vd.status] || '●'}</i>${vd.title}${vd.early ? '' : ` <b class="vdd">${vd.dev > 0 ? '+' : '−'}${P(Math.abs(vd.dev) * 100, Math.abs(vd.dev) >= .0995 ? 0 : 1)}</b>`}<span>projekcija ${N(vd.clean)}${vd.sus > 0 ? ' bez ≈ ' + N(vd.sus) + ' sumnjivih direktnih' : ''} · očekivano ${N(vd.level)}</span>`;
   pb.hidden = !proj; if (proj) pb.firstElementChild.style.width = Math.min(100, 100 * cNow / proj).toFixed(1) + '%';
   $('#cMeta').textContent = 'red ' + hms(L.at);
   $('#cProj').innerHTML = proj ? `očekivano poseta danas · do sada <b class="num">${cEst ? '≈ ' : ''}${N(cNow)}</b>` : `posete do sada · <span class="dt">${projWhy(L.tsm)}</span>`;
@@ -1481,7 +1493,7 @@ function openDay(d) {
 // ---------------------------------------------------------------- ⓘ po kartici (audit 4.10.2026: racunar ima objasnjenja u title atributima, telefon nema hover)
 const INFO = {
   'Puls dana': `<p><b>Veliki broj</b> = očekivano poseta do kraja dana: do sada + ostatak referisanih (projekcija iz oblika poslednjih 7 dana) × današnji odnos poseta/referisane × k (koliko je taj odnos u ostatku dana obično niži — direktni stižu ravno preko dana, referisani uveče).</p>
-<p><b>Ocena dana</b> poredi projekciju BEZ sumnjivih direktnih (= projekcija referisanih × normalan odnos poseta/referisane iz čistih dana) sa očekivanim (očekivane referisane: medijana 7 dana × dan u nedelji, × isti odnos). Sumnjivi direktni = direktno iznad uobičajenog za ovo doba dana (od 20.9 skrejper bez referera). Pun pil / „Dobar dan" = razlika preko praga (šum nivoa + nesigurnost projekcije).</p>
+<p><b>Ocena dana</b> poredi projekciju BEZ sumnjivih direktnih (= projekcija referisanih × normalan odnos poseta/referisane iz čistih dana) sa očekivanim (očekivane referisane: medijana 7 dana × dan u nedelji, × isti odnos). Sumnjivi direktni = direktno iznad uobičajenog za ovo doba dana (od 20.9 skrejper bez referera). Dobar / Slabiji dan = razlika preko praga (šum nivoa + nesigurnost projekcije), Odličan / Loš = preko 1,6 praga; boja kartice i kruga prati ocenu (zeleno / plavo = običan / crveno).</p>
 <p><b>Pilovi</b>: vs očekivano = ocena dana; juče / pre 7 d = posete do sada prema istom dobu tog dana (sirovo, sa botom). <b>Čipovi</b> = projekcija izvora prema njegovom očekivanom; dodir otvara detalje. Traka = koliki je deo projekcije već stigao.</p>`,
   'Online sada': `<p>Aktivni posetioci u poslednjih 60 min (klon JSON, isti broj kao na računaru), uz 15 i 5 min. <b>Po izvoru</b> = iz istog reda, tačno (nije procena). Grafik = online po minutu u poslednja 2 h.</p>`,
   'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs juče</b> = do sada prema istom dobu juče; pun pil preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Dodir na red = detalji izvora.</p>`,
