@@ -413,15 +413,15 @@ function parseLine(line) {
   for (const name of names) {
     if (name === 'GOOGLE') continue;
     const v = s.refs[name], u = num(v.uniq_in), bot = v.isbot === 'Y';
-    const grp = groupOf(name, bot, v.ispublic === 'Y');
+    // pregledi strana = ulasci (raw_in) + klikovi po stranama po ULAZNOJ grupi main/gallery/video (mobile = podskup po uredjaju, ne sabira se); 0 = polje izostavljeno
+    let c = 0;
+    if (fmt2) { c = num(v.raw_in); for (const a of ['main', 'gallery', 'video']) for (const b of ['main', 'gallery', 'picture', 'video']) c += num(v['clicks_' + a + '_raw_' + b]); }
+    let grp = groupOf(name, bot, v.ispublic === 'Y');
+    // referer = sopstveni sajt (interna navigacija): 0 poseta, 0 ulazaka, samo klikovi (~27 % svih) i online — svoja grupa, van Organica i
+    // repa „Ostali" (racunar ga prepoznaje po imenu; ovde potpis, jer ime sajta ne sme u javnu stranu) — audit 4.10.2026
+    if (fmt2 && grp === 'other' && u === 0 && num(v.raw_in) === 0 && c > 0) grp = 'self';
     g[grp] = (g[grp] || 0) + u; refs[name] = u; su += u; ko += num(v.clicks_uniq_out);
-    if (fmt2) {
-      // pregledi strana = ulasci (raw_in) + klikovi po stranama po ULAZNOJ grupi main/gallery/video (mobile = podskup po uredjaju, ne sabira se); 0 = polje izostavljeno
-      let c = num(v.raw_in);
-      for (const a of ['main', 'gallery', 'video']) for (const b of ['main', 'gallery', 'picture', 'video']) c += num(v['clicks_' + a + '_raw_' + b]);
-      pg[grp] = (pg[grp] || 0) + c; og[grp] = (og[grp] || 0) + num(v.onlines);
-      if (!bot) pv += c;
-    }
+    if (fmt2) { pg[grp] = (pg[grp] || 0) + c; og[grp] = (og[grp] || 0) + num(v.onlines); if (!bot) pv += c; }
     if (!bot) {
       if (v.new_uniq_in != null) nw = (nw || 0) + num(v.new_uniq_in);
       if (v.bounce_uniq_in != null) bo = (bo || 0) + num(v.bounce_uniq_in);
@@ -1105,7 +1105,7 @@ function renderSada({ L, on, cNow, cEst }) {
   const eY = H[prevDate(S.today)], proj = projC(L, cNow);
   $('#oV').textContent = N(on);
   // glavni broj = PROJEKCIJA dana (kao na racunaru), do sada sitno; dok projekcije nema (pre 03:00 / bez istorije) glavni broj je do sada
-  $('#cV').textContent = proj ? '≈ ' + N(proj) : (cEst ? '≈ ' : '') + N(cNow);
+  $('#cV').textContent = proj ? N(proj) : (cEst ? '≈ ' : '') + N(cNow);
   const vd = verdict(L, proj), ve = $('#cVd'), pb = $('#cPb');
   $('#cCard').className = 'card hero' + (vd && vd.cls ? ' ' + vd.cls : '');
   ve.hidden = !vd; ve.className = 'vd' + (vd && vd.cls ? ' ' + vd.cls : '');
@@ -1119,17 +1119,16 @@ function renderSada({ L, on, cNow, cEst }) {
   pb.hidden = !proj; if (proj) pb.firstElementChild.style.width = Math.min(100, 100 * cNow / proj).toFixed(1) + '%';
   $('#cMeta').textContent = 'red ' + hms(L.at);
   $('#cProj').innerHTML = proj ? `očekivano poseta danas · do sada <b class="num">${cEst ? '≈ ' : ''}${N(cNow)}</b>` : `posete do sada · <span class="dt">${projWhy(L.tsm)}</span>`;
-  $('#cDl').innerHTML = CMP.map(([back]) => { const y = dayAt(back, L.tsm, 0); return y ? `<span class="pl">${back === 1 ? 'juče' : 'pre ' + back + ' d'} ${pill(cNow / y - 1, CMP_DAY)}</span>` : ''; }).join('');
+  // isti skup kao na racunaru: vs ocekivano (ocena, bez sumnjivih) · juce · pre 7 d (bilo juce / -7 / -14 sirovo sa botom = zeleno +55 % ispod ocene)
+  $('#cDl').innerHTML = (vd && !vd.early && vd.dev != null ? `<span class="pl">vs očekivano ${pill(vd.dev, vd.thr)}</span>` : '') +
+    [1, 7].map(back => { const y = dayAt(back, L.tsm, 0); return y ? `<span class="pl">${back === 1 ? 'juče' : 'pre 7 d'} ${pill(cNow / y - 1, CMP_DAY)}</span>` : ''; }).join('');
   const nb = L.u - (L.g.bots || 0);
   $('#cSub').innerHTML = [eY && !eY.x && eY.c ? `juče ukupno <b class="num">${N(eY.c)}</b>` : '', L.nw != null && nb > 0 ? `novi <b class="num">${P(100 * L.nw / nb, 0)}</b>` : '',
     L.pv != null && nb > 0 ? `strane <b class="num">${K(L.pv)}</b> · <b class="num">${(L.pv / nb).toFixed(1).replace('.', ',')}</b> po poseti` : ''].filter(Boolean).join(' · ');   // pregledi strana (format 2)
   $('#cQ').textContent = cEst ? '≈ procena: server izvora je danas restartovan' : '';
-  // histats skala: dolasci u prozoru x k po izvoru (iste konstante kao na racunaru)
-  const hk = CFG.hk || {}, hw = CFG.hw || 12, AK = allKeys();
-  let hist = hk._total ? 0 : null;
-  if (hist != null) for (const k of AK) { const v = arrivals([k], hw); if (v == null) { hist = null; break; } hist += v * (hk[k] || hk._total); }
+  const AK = allKeys();
   const o515 = L.on5 != null ? `5 min <b class="num">${N(L.on5)}</b> · 15 min <b class="num">${N(L.on15)}</b> · 60 min <b class="num">${N(L.on)}</b>` : '';
-  $('#oSub').innerHTML = [o515, hist != null ? `≈ histats „Users online" <b class="num">${N(hist)}</b>` : '', L.rst ? 'puni se oko 1 h posle restarta servera' : ''].filter(Boolean).join('<br>');
+  $('#oSub').innerHTML = [o515, L.rst ? 'puni se oko 1 h posle restarta servera' : ''].filter(Boolean).join('<br>');
   // online po izvoru iz samog reda (format 2, 60 min): isti brojevi kao kartica Online sada na racunaru
   const ob = $('#oBy');
   if (L.og) {
@@ -1171,15 +1170,15 @@ function renderDan({ L, cNow, cEst }) {
   // poredjenje dana: isto doba (do sada prema istom minutu tog dana) ili ceo dan (projekcija prema celom tom danu)
   const end = S.cm === 'end';
   document.querySelectorAll('#mxM button').forEach(b => b.classList.toggle('on', b.dataset.m === S.cm));
-  $('#mxNow').innerHTML = `do ${at}<br><span class="dt">≈ kraj dana</span>`;
+  $('#mxNow').innerHTML = `do ${at}<br><span class="dt">kraj dana</span>`;
   let miss = false;
   $('#mxBody').innerHTML = mxRows().map(([key, label, cls, keys, c]) => {
     const now = keys ? kcum(L.g, keys) : cNow, proj = key === 'c' ? projC(L, cNow) : mxProj(key, keys, now, L.tsm), base = end ? proj : now;
-    return `<tr class="${cls} tap" data-k="${key}"><td>${c ? sw(c) : ''}${label}</td><td class="num">${(key === 'c' && cEst ? '≈ ' : '') + N(now)}<br><span class="dt">${proj ? '≈ ' + N(proj) : '—'}</span></td>` +
+    return `<tr class="${cls} tap" data-k="${key}"><td>${c ? sw(c) : ''}${label}</td><td class="num">${(key === 'c' && cEst ? '≈ ' : '') + N(now)}<br><span class="dt">${proj ? N(proj) : '—'}</span></td>` +
       CMP.map(([back]) => { const v = end ? mxEnd(key, keys, addDays(S.today, -back)) : mxAt(keys, back, L.tsm); if (v == null) miss = true; return `<td>${pill(v && base != null ? base / v - 1 : null, mxThr(key))}</td>`; }).join('') + '</tr>';
   }).join('');
   const botDays = CMP.filter(([back]) => ((H[addDays(S.today, -back)] || {}).f || '').includes('bot')).map(x => x[1]);
-  $('#kSub').innerHTML = `Ispod broja do sada stoji projekcija kraja dana (≈). Pil = danas prema tom danu (${end ? 'projekcija prema celom danu' : 'isto doba dana'}): zeleno = danas više, crveno = manje; pun pil = preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Referisane = Organic + Partneri. Dodir na red = detalji.` +
+  $('#kSub').innerHTML = `Ispod broja do sada stoji projekcija kraja dana (sitno). Pil = danas prema tom danu (${end ? 'projekcija prema celom danu' : 'isto doba dana'}): zeleno = danas više, crveno = manje; pun pil = preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Referisane = Organic + Partneri. Dodir na red = detalji.` +
     (botDays.length ? `<br><span class="fl">⚠ bot</span>: ${botDays.join(', ')} — Posete i Direktno su tih dana naduvani, čisto poređenje daju ostali redovi.` : '') +
     (miss ? '<br>— = telefon nema krivu tog dana: izvor čuva redove tek od 2.10, starije dane uvozi računar (Podešavanje).' : '');
   // tok dana (kumulativno): danas + juce + pre 7 + pre 14 dana
@@ -1312,13 +1311,13 @@ function openSource(key) {
   const a = D ? keys.reduce((s, k) => { const x = D.q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]) : null;
   const ra = refArrivals(), list = D ? D.refs.filter(x => keys.includes(x[1])) : [];
   openSheet(label, `<div class="row"><div class="mid num">${N(v)}</div><span class="dt">do ${hms(L.at).slice(0, 5)}</span></div>
-    <div class="proj">${pr ? `projekcija dana <b class="num">≈ ${N(pr)}</b>` : `<span class="dt">${projWhy(L.tsm)}</span>`}</div>
+    <div class="proj">${pr ? `projekcija dana <b class="num">${N(pr)}</b>` : `<span class="dt">${projWhy(L.tsm)}</span>`}</div>
     ${st && st.level ? `<div class="sub">očekivano <b class="num">${N(st.level)}</b> ${statPill(st, key === 'direct' && susNow > 0)} <span class="dt">medijana 7 dana × dan u nedelji</span></div>` : ''}
     <div class="sub">5 min <b class="num">${N(arrivals(keys, 5))}</b> · 30 min <b class="num">${N(arrivals(keys, 30))}</b></div>
     ${L.pg && key !== 'bots' ? `<div class="sub">strane danas <b class="num">${K(cum(L.pg, keys))}</b>${cum(L.g, keys) ? ` · <b class="num">${(cum(L.pg, keys) / cum(L.g, keys)).toFixed(1).replace('.', ',')}</b> po poseti` : ''}${L.og ? ` · online <b class="num">${N(cum(L.og, keys))}</b>` : ''}</div>` : ''}
     <h3>Prema prethodnim danima</h3>
     <table><colgroup><col><col class="w108"><col class="w108"></colgroup><thead><tr><th>dan</th><th>isto doba</th><th>ceo dan</th></tr></thead><tbody>
-      <tr class="lead"><td>${ck('t')}danas</td><td class="num"><span class="cv">${N(v)}</span></td><td class="num"><span class="cv">${pr ? '≈ ' + N(pr) : '—'}</span></td></tr>${cmpTr}</tbody></table>
+      <tr class="lead"><td>${ck('t')}danas</td><td class="num"><span class="cv">${N(v)}</span></td><td class="num"><span class="cv">${pr ? N(pr) : '—'}</span></td></tr>${cmpTr}</tbody></table>
     <div class="sub">pil „isto doba" = do sada prema istom trenutku tog dana; pil „ceo dan" = projekcija prema celom tom danu</div>
     <h3>Tok dana</h3><div id="shDay"></div><div class="legend"><span><span class="sw" style="background:${color}"></span>danas</span><span>${sw('tail')}juče</span></div>
     <h3>Po danu</h3><div id="shDays"></div>
