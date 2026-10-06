@@ -230,7 +230,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
       <div class="ct"><h2>Kvalitet po izvoru</h2><span>udeo u posetama izvora</span></div>
       <table>
         <colgroup><col><col class="w56"><col class="w56"><col class="w56"></colgroup>
-        <thead><tr><th>izvor</th><th>novi</th><th>mob.</th><th title="pregledi strana po jedinstvenoj poseti (izvor, od 3.10)">str./pos.</th></tr></thead>
+        <thead><tr><th>izvor</th><th>novi</th><th>mob.</th><th title="pregledi strana po jedinstvenoj poseti; po izvoru procena (strane izvora + srazmeran deo internih klikova), red „sve bez botova&quot; = ukupno">str./pos.</th></tr></thead>
         <tbody id="qBody"></tbody>
       </table>
     </section>
@@ -534,6 +534,10 @@ function valAt(day, minute, pick) {
   return null;
 }
 const cum = (g, keys) => keys.reduce((s, k) => s + ((g && g[k]) || 0), 0);
+// strane po izvoru (GA4 provera 4. i 5.10.2026; ISTO kao racunar app.js pvF): interni klikovi (grupa self, ~25 % svih strana, 0 ulazaka) su
+// pregledi posetilaca SVIH izvora ciji ulaz klon nije povezao -> izvor dobija srazmeran deo: strane x F, F = ukupno / (ukupno − interno).
+// Sa F po poseti po izvoru = GA4 (svi izvori osim direktnih 0,98–0,99); ukupno (L.pv) ostaje klonov broj; bez internih F = 1.
+const pvF = r => r && r.pv && r.pg && r.pg.self > 0 && r.pv > r.pg.self ? r.pv / (r.pv - r.pg.self) : 1;
 // dnevni zapis iz poslednjeg reda dana
 function summary(row, day, partial) {
   const d = detail(row), bots = row.g.bots || 0, direct = row.g.direct || 0, est = row.uv == null;
@@ -1356,10 +1360,13 @@ function renderDan({ L, cNow, cEst }) {
   $('#btnHours').hidden = rows.length <= 6; $('#btnHours').textContent = S.allHours ? 'samo poslednjih 6 sati' : `svih ${rows.length} sati`;
   // kvalitet po izvoru
   const D = detail(L), q = D ? D.q : null;
+  const pK = pvF(L);
   const qrow = (cls, c, label, keys) => {
     const a = keys.reduce((s, k) => { const x = q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]);
     const f = i => a[5] ? P(100 * a[i] / a[5], 0) : '—';
-    const pv = L.pg ? cum(L.pg, keys) : null;           // pregledi strana grupe / jedinstvene posete istog brojaca (format 2)
+    // pregledi strana grupe x F (interni klikovi rasporedjeni srazmerno, pvF) / jedinstvene posete istog brojaca (format 2);
+    // red „sve bez botova" = ukupno L.pv sa internim klikovima (isti broj kao zaglavlje i racunar; do 6.10 bez internih)
+    const pv = L.pg ? (cls === 'total' ? L.pv : cum(L.pg, keys) * pK) : null;
     return `<tr class="${cls}"><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${f(0)}</td><td class="num">${f(2)}</td><td class="num">${pv != null && a[5] ? (pv / a[5]).toFixed(1).replace('.', ',') : '—'}</td></tr>`;
   };
   $('#qBody').innerHTML = q ? tableRows().filter(r => r[0] !== 'bots').map(([key, label, cls, keys, c]) => qrow(cls, c, label, keys)).join('') + qrow('total', '', 'sve bez botova', allKeys().filter(k => k !== 'bots')) : '<tr><td colspan="4" class="mt">stiže sa sledećim redom</td></tr>';
@@ -1461,7 +1468,7 @@ function openSource(key) {
     <div class="proj">${pr ? `projekcija dana <b class="num">${N(pr)}</b>` : `<span class="dt">${projWhy(L.tsm)}</span>`}</div>
     ${st && st.level ? `<div class="sub">očekivano <b class="num">${N(st.level)}</b> ${statPill(st, key === 'direct' && susNow > 0)} <span class="dt">medijana 7 dana × dan u nedelji</span></div>` : ''}
     <div class="sub">5 min <b class="num">${N(arrivals(keys, 5))}</b> · 30 min <b class="num">${N(arrivals(keys, 30))}</b></div>
-    ${L.pg && key !== 'bots' ? `<div class="sub">strane danas <b class="num">${K(cum(L.pg, keys))}</b>${cum(L.g, keys) ? ` · <b class="num">${(cum(L.pg, keys) / cum(L.g, keys)).toFixed(1).replace('.', ',')}</b> po poseti` : ''}${L.og ? ` · online <b class="num">${N(cum(L.og, keys))}</b>` : ''}</div>` : ''}
+    ${L.pg && key !== 'bots' ? `<div class="sub">strane danas <b class="num">${pvF(L) > 1 ? '≈ ' : ''}${K(cum(L.pg, keys) * pvF(L))}</b>${cum(L.g, keys) ? ` · <b class="num">${(cum(L.pg, keys) * pvF(L) / cum(L.g, keys)).toFixed(1).replace('.', ',')}</b> po poseti` : ''}${L.og ? ` · online <b class="num">${N(cum(L.og, keys))}</b>` : ''}</div>` : ''}
     <h3>Prema prethodnim danima</h3>
     <table><colgroup><col><col class="w108"><col class="w108"></colgroup><thead><tr><th>dan</th><th>isto doba</th><th>ceo dan</th></tr></thead><tbody>
       <tr class="lead"><td>${ck('t')}danas</td><td class="num"><span class="cv">${N(v)}</span></td><td class="num"><span class="cv">${pr ? N(pr) : '—'}</span></td></tr>${cmpTr}</tbody></table>
@@ -1503,7 +1510,7 @@ const INFO = {
 <p><b>Referisane</b> = Organic + Partneri (bez direktnih i botova) — čisto poređenje i na bot dan. Za dane koje izvor nema, krive stižu uvozom sa računara (Podešavanje).</p>`,
   'Tok dana': `<p>Kumulativne krive dana: danas (zlatno) prema juče, pre 7 i pre 14 dana; mera po izboru (posete / referisane / organic).</p>`,
   'Po satu': `<p>Prirast po satu danas i istih sati pre 1 / 7 / 14 dana; tekući sat se poredi sa istim delom tog sata. Pun pil = preko 15 % (pojedinačan sat je šumovit).</p>`,
-  'Kvalitet po izvoru': `<p>Udeo novih posetilaca i mobilnih u posetama izvora + pregledi strana po poseti (ulasci + klikovi po stranama, bez botova; nova mera od 3.10, poređenje sa GA4 u toku).</p>`,
+  'Kvalitet po izvoru': `<p>Udeo novih posetilaca i mobilnih u posetama izvora + pregledi strana po poseti (ulasci + klikovi po stranama, bez botova).</p><p>Po izvoru je procena: strane izvora + srazmeran deo internih klikova (klikovi sa sopstvenog sajta čiji ulaz klon nije povezao, oko četvrtine svih strana). Provereno prema GA4 na punim danima 4. i 5.10: po poseti svih izvora osim direktnih isto kao GA4; Direktno više zbog skrejpera. Red „sve bez botova" = ukupno; ono je ~40 % iznad GA4 jer klon vidi i DuckDuckGo posetioce (njihov pretraživač blokira GA4) i skrejper.</p>`,
   'Partneri': `<p>Posete partnera do sada (pil = prema istom dobu pre 7 dana) i po partneru: danas, dolasci u 30 min, udeo novih.</p>`,
   'Botovi': `<p>Zahtevi (raw) deklarisanih botova po imenu: danas, juče i medijana 7 dana; stubići = najjači bot po danu. Googlebot = koliko nas Google crawluje.</p>`,
   'Po danu': `<p>Redovi <b>7–365 d</b> = prosek po danu u periodu (do juče) i pil prema prethodnom periodu iste dužine (≈ = prethodni period nepotpun). Dnevni redovi: izabrana mera + jedan nivo dublje (posete → referisane → organic → Google); pil = prema istom danu nedelju ranije („danas" = do sada prema istom dobu).</p>
