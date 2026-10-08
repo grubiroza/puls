@@ -1270,12 +1270,14 @@ function verdict(L, proj) {
   const hNow = kcum(L.g, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm), mix = lh && lh.L && pH ? pH * F : null;
   const lt = mix ? { L: lh.L * F, noise: lh.noise } : lvl('c', e => e.c, true);
   if (!lt || !lt.L) return null;
-  let sus;
-  if (mix) { const dn = dirSusNow(L); sus = dn != null && dn <= 0 ? 0 : Math.max(0, proj - mix); }   // 8.10.2026: sumnjivi u oceni samo kad ih ima DO SADA (racunar sus_u > 0); inace je k-projekcija iznad c_mix razlika metoda
+  let sus; const dn = mix ? dirSusNow(L) : null, susNow = dn != null && dn > 0;   // sumnjivi direktni DO SADA (racunar sus_u > 0)
+  if (mix) sus = susNow ? Math.max(0, proj - mix) : 0;   // 8.10.2026: sumnjivi u oceni samo kad ih ima DO SADA; inace je k-projekcija iznad c_mix razlika metoda
   else { const ld = lvl('direct', e => e.g ? e.g.direct : null, true), lvD = ld ? ld.L : null, pD = mxProj('direct', ['direct'], L.g.direct || 0, L.tsm); sus = pD && lvD ? Math.max(0, pD - lvD) : 0; }
   const rH = mxRatio('h', refKeys(), L.tsm), share = rH ? Math.min(1, 1 / rH) : 0;
   const thr = Math.max(0.06, Math.min(0.35, Math.hypot(lt.noise, 0.075 * (1 - share)))), early = share < 0.18;
-  const clean = mix ? mix : Math.max(0, proj - sus), dev = clean / lt.L - 1;
+  // 9.10.2026 (Raleov GO 00:58; racunar sources.compute isto): bez sumnjivih do sada ocena iz k-PROJEKCIJE; sa sumnjivima iz c_mix (normalan
+  // odnos posete/referisane) — c_mix na danu sa slabim direktnim precenjuje (8.10: +4,2 %, ocena −0,8 % a dan −4,8 %)
+  const clean = mix && susNow ? mix : Math.max(0, proj - sus), dev = clean / lt.L - 1;
   const title = early ? 'Rano je za ocenu dana' : dev >= 1.6 * thr ? 'Odličan dan' : dev >= thr ? 'Dobar dan' : dev <= -1.6 * thr ? 'Loš dan' : dev <= -thr ? 'Slabiji dan' : 'Običan dan';
   const status = early ? 'early' : dev >= 1.6 * thr ? 'boost' : dev >= thr ? 'up' : dev <= -1.6 * thr ? 'drop' : dev <= -thr ? 'down' : 'normal';
   return { dev, clean, sus, level: lt.L, thr, early, title, status, cls: status };
