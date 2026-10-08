@@ -1060,8 +1060,9 @@ function cOwnAt(back, m) {
   let lo = i0, hi = i0 + 1;
   while (lo >= 0 && lo >= i0 - 2 && arr[lo] == null) lo--;
   if (lo >= 0 && arr[lo] != null && lo === f) return arr[lo];
-  while (hi < arr.length && hi <= i0 + 3 && arr[hi] == null) hi++;
-  if (lo < 0 || lo < i0 - 2 || hi >= arr.length || hi > i0 + 3 || arr[lo] == null || arr[hi] == null) return null;
+  const hiMax = Math.ceil(f) + 2;   // ±2 slota oko minuta (na mrezi slotova tacno kao racunar projection._c_at; 8.10.2026 — +3 je davao drugi k ujutru)
+  while (hi < arr.length && hi <= hiMax && arr[hi] == null) hi++;
+  if (lo < 0 || lo < i0 - 2 || hi >= arr.length || hi > hiMax || arr[lo] == null || arr[hi] == null) return null;
   return arr[lo] + (arr[hi] - arr[lo]) * (f - lo) / (hi - lo);
 }
 // danas bot dan? isto pravilo kao racunar (collector: oznaka 'bot' kad su sumnjivi direktni DO SADA = direktno − ocekivano do sada >= 10 %
@@ -1087,14 +1088,22 @@ function todayBot(L, cNow) {
 function kRem(m, bot) {
   const ck = S.today + '|' + Math.round(m) + '|' + Object.keys(H).length + '|' + (bot ? 'b' : 'c');
   if (RK.k === ck) return RK.v;
-  const ks = [], cd = bot ? null : new Set(cleanDays()), skip = bot ? /outage|partial|dst/ : BADF;
-  for (let b = 1; b <= (bot ? 14 : 120) && ks.length < 7; b++) {
-    const d = addDays(S.today, -b), e = H[d];
-    if (!e || e.x || skip.test(e.f || '') || (cd && !cd.has(d))) continue;
-    const cE = e.c, hE = classEnd(d, 'h'), cM = cOwnAt(b, m), hM = dayAt(b, m, 1);
-    if (!(cE > cM && hE > hM && cM > 0 && hM > 0)) continue;
-    ks.push(((cE - cM) / (hE - hM)) / (cM / hM));
-  }
+  const cd = bot ? null : new Set(cleanDays()), skip = bot ? /outage|partial|dst/ : BADF;
+  const at = mm => {
+    const ks = [];
+    for (let b = 1; b <= (bot ? 14 : 120) && ks.length < 7; b++) {
+      const d = addDays(S.today, -b), e = H[d];
+      if (!e || e.x || skip.test(e.f || '') || (cd && !cd.has(d))) continue;
+      const cE = e.c, hE = classEnd(d, 'h'), cM = cOwnAt(b, mm), hM = dayAt(b, mm, 1);
+      if (!(cE > cM && hE > hM && cM > 0 && hM > 0)) continue;
+      ks.push(((cE - cM) / (hE - hM)) / (cM / hM));
+    }
+    return ks;
+  };
+  let ks = at(m);
+  // minut sa < 3 dana -> k NAJBLIZEG minuta na mrezi slotova (−10, +10, −20, +20 … min) koji ima 3 dana (racunar rem_ratio_k_near,
+  // 8.10.2026): ujutru pre 10 h cisti dani sa tikovima su 1–2, pa bi k bio 1 do 10:05 i projekcija tu pala ~4 % bez razloga u saobracaju
+  for (let d = 1; d < 141 && ks.length < 3; d++) for (const mm of [m - 10 * d, m + 10 * d]) { if (mm < 35 || mm > 1435) continue; const k2 = at(mm); if (k2.length >= 3) { ks = k2; break; } }
   RK.k = ck; RK.v = ks.length >= 3 ? median(ks) : 1;
   return RK.v;
 }
