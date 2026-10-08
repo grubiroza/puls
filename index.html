@@ -307,7 +307,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
-const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', cmp: 'puls.m.cmp', cm: 'puls.m.cm', ks: 'puls.m.ks', de: 'puls.m.de' };
+const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', bot: 'puls.m.bot', cmp: 'puls.m.cmp', cm: 'puls.m.cm', ks: 'puls.m.ks', de: 'puls.m.de' };
 const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
              has(k) { try { return localStorage.getItem(k) != null; } catch (e) { return false; } } };
@@ -1044,9 +1044,10 @@ function projWhy(m) {
   return n < 3 ? 'projekcija dana stiže kad telefon uveze istoriju sa računara (u Pulsu na računaru: dugme telefona u zaglavlju, pa skeniraj QR)' : m < 180 ? 'projekcija dana od 03:00' : 'projekcija dana: nema dovoljno dana za poređenje';
 }
 // posete (kao na racunaru) idu preko referisanih: sada + (projekcija referisanih - referisane sada) x danasnji odnos posete / referisane x k
-// k (audit 4.10.2026, racunar projection.rem_ratio_k) = medijana 7 od 14 dana [ ((C_kraj − C_m) / (H_kraj − H_m)) / (C_m / H_m) ] u istom
+// k (audit 4.10.2026, racunar projection.rem_ratio_k) = medijana 7 dana [ ((C_kraj − C_m) / (H_kraj − H_m)) / (C_m / H_m) ] u istom
 // minutu: odnos posete/referisane OSTATKA dana je nizi od odnosa do sada (direktni/bot stizu ravno, referisani uvece) -> bez k je
-// projekcija u 10 h bila +7,8 %, u 12 h +5,8 %; ispod 3 dana sa podacima k = 1
+// projekcija u 10 h bila +7,8 %, u 12 h +5,8 %; ispod 3 dana sa podacima k = 1. Skup dana (8.10.2026, kRem): danas bez bota = CISTI dani
+// do 120 d unazad (bot dani van — k bot rezima je na prvom cistom danu 7.10 dao −10,6 % u 11 h); danas bot dan = 7 od 14 dana sa bot danima
 const RK = { k: '', v: 1 };
 // C u minutu m dana `back` iz SOPSTVENIH tacaka: binovi telefona (uv) ili sirovi tikovi racunara iz uvoza (CV[d][4], tacka u ±2 slota = 25 min,
 // kao racunar) — NE kriva [0], koja je za dane bez punih tikova klon H x f (oblik referisanih) pa bi k ispao tacno 1
@@ -1063,13 +1064,33 @@ function cOwnAt(back, m) {
   if (lo < 0 || lo < i0 - 2 || hi >= arr.length || hi > i0 + 3 || arr[lo] == null || arr[hi] == null) return null;
   return arr[lo] + (arr[hi] - arr[lo]) * (f - lo) / (hi - lo);
 }
-function remK(m) {
-  const ck = S.today + '|' + Math.round(m) + '|' + Object.keys(H).length;
+// danas bot dan? isto pravilo kao racunar (collector: oznaka 'bot' kad su sumnjivi direktni DO SADA = direktno − ocekivano do sada >= 10 %
+// poseta, tek kad je proslo >= 18 % dana; lepljiva do kraja dana — racunar u daily.json, telefon u localStorage)
+// sumnjivi direktni DO SADA = direktno sada − ocekivano do sada (nivo direktnih iz cistih dana / odnos kraj-sada); null = nema nivoa ili odnosa
+// (racunar: sources.compute sus_u = direct.u − direct.exp_now)
+function dirSusNow(L) {
+  if (!L || !L.g) return null;
+  const ld = lvl('direct', e => e.g ? e.g.direct : null, true), rD = mxRatio('direct', ['direct'], L.tsm);
+  return ld && ld.L && rD ? Math.max(0, (L.g.direct || 0) - ld.L / rD) : null;
+}
+function todayBot(L, cNow) {
+  if (ls.get(LS.bot) === S.today) return true;
+  if (!L || !(cNow > 0)) return false;
+  const rH = mxRatio('h', refKeys(), L.tsm), share = rH ? Math.min(1, 1 / rH) : 0;
+  if (share < 0.18) return false;
+  const dn = dirSusNow(L), bot = dn != null && dn / cNow >= 0.10;
+  if (bot) ls.set(LS.bot, S.today);
+  return bot;
+}
+// k ostatka dana u minutu m: bot = false -> medijana 7 CISTIH dana (cleanDays: bez oznake bot/ispad/nepotpun/dst, do 120 d unazad);
+// bot = true -> 7 od poslednjih 14 dana, bot dani ulaze (oblik tekuceg rezima). Ispod 3 dana k = 1. Isti racun kao projection.rem_ratio_k.
+function kRem(m, bot) {
+  const ck = S.today + '|' + Math.round(m) + '|' + Object.keys(H).length + '|' + (bot ? 'b' : 'c');
   if (RK.k === ck) return RK.v;
-  const ks = [];
-  for (let b = 1; b <= 14 && ks.length < 7; b++) {
+  const ks = [], cd = bot ? null : new Set(cleanDays()), skip = bot ? /outage|partial|dst/ : BADF;
+  for (let b = 1; b <= (bot ? 14 : 120) && ks.length < 7; b++) {
     const d = addDays(S.today, -b), e = H[d];
-    if (!e || e.x || /outage|partial|dst/.test(e.f || '')) continue;
+    if (!e || e.x || skip.test(e.f || '') || (cd && !cd.has(d))) continue;
     const cE = e.c, hE = classEnd(d, 'h'), cM = cOwnAt(b, m), hM = dayAt(b, m, 1);
     if (!(cE > cM && hE > hM && cM > 0 && hM > 0)) continue;
     ks.push(((cE - cM) / (hE - hM)) / (cM / hM));
@@ -1077,9 +1098,10 @@ function remK(m) {
   RK.k = ck; RK.v = ks.length >= 3 ? median(ks) : 1;
   return RK.v;
 }
+const remK = (m, L, cNow) => kRem(m, todayBot(L, cNow));
 function projC(L, cNow) {
   const hNow = kcum(L.g, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm);
-  return pH && hNow > 0 ? cNow + (pH - hNow) * (cNow / hNow) * remK(L.tsm) : null;
+  return pH && hNow > 0 ? cNow + (pH - hNow) * (cNow / hNow) * remK(L.tsm, L, cNow) : null;
 }
 // normalan odnos posete / referisane = medijana C_kraj / H_kraj poslednjih 7 CISTIH dana (racunar: projection.factor_f)
 function mixF() {
@@ -1240,7 +1262,7 @@ function verdict(L, proj) {
   const lt = mix ? { L: lh.L * F, noise: lh.noise } : lvl('c', e => e.c, true);
   if (!lt || !lt.L) return null;
   let sus;
-  if (mix) sus = Math.max(0, proj - mix);
+  if (mix) { const dn = dirSusNow(L); sus = dn != null && dn <= 0 ? 0 : Math.max(0, proj - mix); }   // 8.10.2026: sumnjivi u oceni samo kad ih ima DO SADA (racunar sus_u > 0); inace je k-projekcija iznad c_mix razlika metoda
   else { const ld = lvl('direct', e => e.g ? e.g.direct : null, true), lvD = ld ? ld.L : null, pD = mxProj('direct', ['direct'], L.g.direct || 0, L.tsm); sus = pD && lvD ? Math.max(0, pD - lvD) : 0; }
   const rH = mxRatio('h', refKeys(), L.tsm), share = rH ? Math.min(1, 1 / rH) : 0;
   const thr = Math.max(0.06, Math.min(0.35, Math.hypot(lt.noise, 0.075 * (1 - share)))), early = share < 0.18;
