@@ -751,10 +751,10 @@ function refArrivals() {
   return out;
 }
 // SMER + ZNACAJ (isto kao na racunaru): strelica, znak i boja uvek pokazuju smer; pun pil = razlika preko praga `thr`
-function pill(dev, thr = 0.10) {
+function pill(dev, thr = 0.10, warn = false) {   // warn (10.10.2026): ⚠ umesto strelice, boja ostaje (dan poredjenja je nosio bota); racunar delta(o.warn) isto
   if (dev == null || !isFinite(dev)) return '<span class="dl none">—</span>';
   const a = Math.abs(dev * 100), flat = a < 0.5, f = a < 10 ? 1 : 0;
-  return `<span class="dl ${flat ? 'flat' : dev > 0 ? 'up' : 'down'}${!flat && Math.abs(dev) >= thr ? ' strong' : ''}"><i>${flat ? '●' : dev > 0 ? '▲' : '▼'}</i>${flat ? '' : dev > 0 ? '+' : '−'}${a.toLocaleString('de-DE', { minimumFractionDigits: f, maximumFractionDigits: f })}%</span>`;
+  return `<span class="dl ${flat ? 'flat' : dev > 0 ? 'up' : 'down'}${!flat && Math.abs(dev) >= thr ? ' strong' : ''}"><i>${warn ? '⚠' : flat ? '●' : dev > 0 ? '▲' : '▼'}</i>${flat ? '' : dev > 0 ? '+' : '−'}${a.toLocaleString('de-DE', { minimumFractionDigits: f, maximumFractionDigits: f })}%</span>`;
 }
 // ---- poredjenje dana: danas prema juce / pre 7 / pre 14 dana ----
 // which: 0 = posete, 1 = referisane (bez direktnih i botova), 2 = organic (svi pretrazivaci). Dan se cita iz binova telefona;
@@ -1525,7 +1525,9 @@ function renderDani({ L, cNow, cEst }) {
     // danas: do sada prema ISTOM DOBU pre 7 dana (isti broj kao tab Dan); prosli dani: ceo dan prema celom danu nedelju ranije
     const wk = H[addDays(d, -7)], v = today ? nowV : mv(d), g = today ? now2 : mv2(d);
     const wv = today ? (w === 4 ? null : mxAt(eng ? [eng] : [null, refKeys(), SEARCH][w], 7, L.tsm)) : wk && !wk.x ? mv(addDays(d, -7)) : null, wg = today ? (w === 4 ? mxAt(null, 7, L.tsm) : grpAt(7, L.tsm, keys2)) : wk && !wk.x ? mv2(addDays(d, -7)) : null;
-    return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${pill(wv && v != null ? v / wv - 1 : null, CMP_DAY)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td>${pill(wg && g != null ? g / wg - 1 : null, CMP_DAY)}</td></tr>`;
+    // 10.10.2026 (Raleov GO 16:07; racunar tabela Po danu isto): ⚠ uz dan sa botom; ⚠ uz pil POSETA (1. par kad je mera posete, 2. par kad je mera strane) kad je dan poredjenja nosio bota -> pad prividan
+    const botD = ((e && e.f) || '').includes('bot'), botW = !!(wk && (wk.f || '').includes('bot')), f1 = botW && w === 0 && !eng, f2 = botW && w === 4, FL = ' <span class="fl">⚠</span>';
+    return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}${botD ? FL : ''}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${pill(wv && v != null ? v / wv - 1 : null, CMP_DAY, f1)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td>${pill(wg && g != null ? g / wg - 1 : null, CMP_DAY, f2)}</td></tr>`;
   };
   // PERIODI (3.10.2026, Rale): prosek po danu poslednjih nD zatvorenih dana (do juce) + pil prema prethodnih nD — isti racun kao na racunaru
   // (prozori = dostupni dani; ≈ = prozor nepotpun, — = manje od pola prozora); izabrana mera + drugi par
@@ -1555,7 +1557,7 @@ function renderDani({ L, cNow, cEst }) {
   $('#wkSub').innerHTML = l84.length >= 14 && wkHi ? `medijana poseta, 12 nedelja · najjači <b>${DOW[wkHi.wd]}</b> <b class="num">${N(wkHi.v)}</b> · najslabiji <b>${DOW[wkLo.wd]}</b> <b class="num">${N(wkLo.v)}</b> · obris = danas` : 'profil nedelje stiže kad se skupi 14 dana';
   const nPc = Object.values(H).filter(e => e.src === 'pc').length, pend = (() => { let c = 0; for (let i = 2; i <= BACK_DAYS; i++) { const e = H[addDays(S.today, -i)]; if (!e || e.p) c++; } return c; })();
   const nHr = Object.values(H).filter(e => e.hr && e.c == null).length;
-  $('#daysNote').textContent = 'Redovi 7–365 d = prosek po danu u periodu (do juče) i pil prema prethodnom periodu iste dužine (≈ = prethodni period nepotpun, — = premalo podataka). Pil dana = prema istom danu nedelju ranije („danas" = do sada prema istom dobu). Dodir na dan = detalji. ' + (w === 4 ? 'Strane = pregledi strana iz izvora (od 4.10). ' : '') + (nPc ? '' : (nHr ? 'Referisane i organic starijih dana stižu iz satne krive izvora; posete, uređaji i botovi uvozom sa računara (Podešavanje). ' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ')) + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
+  $('#daysNote').textContent = 'Redovi 7–365 d = prosek po danu u periodu (do juče) i pil prema prethodnom periodu iste dužine (≈ = prethodni period nepotpun, — = premalo podataka). Pil dana = prema istom danu nedelju ranije („danas" = do sada prema istom dobu). ⚠ uz dan = bot dan (skrejper: Posete naduvane); ⚠ u pilu poseta = dan poređenja je nosio bota, pad je prividan. Dodir na dan = detalji. ' + (w === 4 ? 'Strane = pregledi strana iz izvora (od 4.10). ' : '') + (nPc ? '' : (nHr ? 'Referisane i organic starijih dana stižu iz satne krive izvora; posete, uređaji i botovi uvozom sa računara (Podešavanje). ' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ')) + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
 }
 
 // ---------------------------------------------------------------- listovi (izvor, dan)
