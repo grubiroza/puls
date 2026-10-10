@@ -186,7 +186,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
       <div class="ct"><h2>Izvori</h2><span>dodir na red = detalji</span></div>
       <table>
         <colgroup><col><col class="w54"><col class="w38"><col class="w44"><col class="w62"></colgroup>
-        <thead><tr><th>izvor</th><th>do sada</th><th>5 min</th><th>30 min</th><th>vs juče</th></tr></thead>
+        <thead><tr><th>izvor</th><th>do sada</th><th>5 min</th><th>30 min</th><th>vs očekivano</th></tr></thead>
         <tbody id="sBody"></tbody>
       </table>
     </section>
@@ -1400,13 +1400,16 @@ function renderSada({ L, on, cNow, cEst }) {
   lineChart($('#chOn'), [{ pts: expPts, color: 'var(--text-3)', w: 1.2, dash: '4 4' }, { pts: onPts, color: 'var(--green)', w: 2, fill: true }], { x0: t1 - 7200, x1: t1, y0: Math.max(0, mn - (mxo - mn) - 5), h: 64 });
   // izvori
   const tr = (key, cls, c, label, v, a5, a30, dev) => `<tr class="${cls}${key ? ' tap' : ''}"${key ? ` data-k="${key}"` : ''}><td>${c ? sw(c) : ''}${esc(label)}</td><td class="num">${N(v)}</td><td class="num">${a5 == null ? '·' : N(a5)}</td><td class="num mt">${a30 == null ? '·' : N(a30)}</td><td>${dev}</td></tr>`;
-  const yG = keys => grpAt(1, L.tsm, keys);
+  // 10.10.2026 (Raleov GO 21:54): pil = projekcija izvora prema OCEKIVANOM (srcStat, isti racun/pragovi kao glavna tabela na racunaru i cipovi
+  // uz ocenu) umesto „vs juce" — Rale je poredio telefon „vs juce" sa desktop „vs ocekivano" (Google +3,2 % vs +1,9 %); juce/pre 7 d po izvoru = tab Dan.
+  // Ostali/Botovi nemaju red na racunaru -> „—"; red ukupno = pil ocene dana (kao hero); pre ocene (rano / bez istorije) sve „—".
+  const NOPILL = new Set(['rest', 'bots']), none = '<span class="dl none">—</span>';
   let html = '';
   for (const [key, label, cls, keys, c] of tableRows()) {
-    const v = kcum(L.g, keys), y = yG(keys);
-    html += tr(key, cls, c, label, v, arrivals(keys, 5), arrivals(keys, 30), pill(y ? v / y - 1 : null));
+    const v = kcum(L.g, keys), st = vd && !vd.early && !NOPILL.has(key) ? srcStat(key, keys, v, L.tsm) : null;
+    html += tr(key, cls, c, label, v, arrivals(keys, 5), arrivals(keys, 30), st && st.dev != null ? statPill(st, key === 'direct' && vd.sus > 0) : none);
   }
-  $('#sBody').innerHTML = html + tr('', 'total', '', 'ukupno', L.u, arrivals(AK, 5), arrivals(AK, 30), '');
+  $('#sBody').innerHTML = html + tr('', 'total', '', 'ukupno', L.u, arrivals(AK, 5), arrivals(AK, 30), vd && !vd.early && vd.dev != null ? pill(vd.dev, vd.thr) : none);
   // stubici 12 x 10 min: pretrazivaci / partneri / direktno
   const bins = [], part = partKeys();
   for (let j = 0; j < 12; j++) {
@@ -1617,7 +1620,7 @@ const INFO = {
 <p><b>Ukupno sa nepovezanima</b> (sitno) = klonov online: uz posetioce iz izvora broji i bazen sesija bez referera (posetioci svih izvora koje izvor nije povezao sa ulaskom + crawleri). Bazen se koleba ±25 % iz dana u dan bez veze sa posetama, zato ukupno nema pil. <b>Po izvoru</b> = iz istog reda, tačno; red ispod = podela ukupnog (iz izvora + direktno koliko ih je stvarno došlo + nepovezani + botovi). Grafik = iz izvora po minutu u poslednja 2 h, isprekidano = uobičajeno. Čisti dani = bez bota i ispada; telefon ih ima iz izvora do 15 dana unazad, pa norma raste svakim danom.</p>
 <p><b>Direktno + nepovezani</b>: online bez referera je oko 12× veći od dolazaka direktnih u 60 min, dok je za Google, Bing, Trade… online ≈ dolasci u 60 min. Taj bazen stoji ceo dan (oko polovine onlajna, a direktni su 16–20 % poseta) = posetioci svih izvora koje izvor nije povezao sa ulaskom + trajni crawleri, ne pravi direktni. Red ispod: <b>iz izvora</b> = referisani online + direktni koliko ih je stvarno došlo u 60 min; <b>nepovezani</b> = ostatak direktnih + interno; botovi posebno (procena, ≈; isti račun kao na računaru).</p>`,
   'Online danas': `<p><b>Zeleno = online iz izvora</b> (posetioci iz pretraživača i od partnera aktivni u 60 min) po 10 minuta danas, isprekidano = <b>uobičajeno</b> u isto doba (medijana poslednjih 7 čistih dana; bez bot dana i ispada; izvor čuva redove 30 dana, telefon drži 15). Tanko sivo = ukupno sa nepovezanima (bazen koji se koleba ±25 % iz dana u dan, zato bez pila). Zamena za histats naviku „u ovo doba ima toliko online": zelena linija uz isprekidanu = običan dan. Isti račun i brojevi kao na računaru (Tok dana → online).</p>`,
-  'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs juče</b> = do sada prema istom dobu juče; pun pil preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Dodir na red = detalji izvora.</p>`,
+  'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs očekivano</b> = projekcija izvora do kraja dana prema njegovom očekivanom (medijana 7 dana × dan u nedelji) — isti račun i pragovi kao glavna tabela na računaru i čipovi uz ocenu dana; pun pil = iznad praga tog izvora; ⚠ kod Direktnog = ima sumnjivih direktnih; red ukupno = ocena dana. Poređenje sa jučerašnjim danom po izvoru je u tabu Dan. Dodir na red = detalji izvora.</p>`,
   'Dolasci po 10 min': `<p>Novi posetioci po 10-minutnom prozoru u poslednja 2 h: organic (pretraživači), partneri (trade + sopstvene grupe), direktno (bez referera; od 20.9 pretežno skrejper).</p>`,
   'Referenti': `<p>Pojedinačni refereri: dolasci u poslednjih 30 min (prva kolona) i ukupno danas. Bez direktnih i botova.</p>`,
   'Poređenje dana': `<p>Danas prema juče / pre 7 / pre 14 dana. <b>isto doba</b> = do sada prema istom minutu tog dana; <b>ceo dan</b> = projekcija prema celom tom danu. Zeleno = danas više, crveno = manje; pun pil = razlika preko 7 % (Bing, DDG, Yahoo, Direktno 15 %). Sitno ispod broja = projekcija kraja dana.</p>
