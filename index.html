@@ -1086,6 +1086,7 @@ function todayBot(L, cNow) {
 // k ostatka dana u minutu m: bot = false -> medijana 7 CISTIH dana (cleanDays: bez oznake bot/ispad/nepotpun/dst, do 120 d unazad);
 // bot = true -> 7 od poslednjih 14 dana, bot dani ulaze (oblik tekuceg rezima). Ispod 3 dana k = 1. Isti racun kao projection.rem_ratio_k.
 function kRem(m, bot) {
+  if (m >= 1380) return 1;   // 10.10.2026 (racunar projection.K_LATE_MIN): od 23:00 ostatak dana je premali, medijana odnosa sumi (23:45 k 1,935) -> k = 1
   const ck = S.today + '|' + Math.round(m) + '|' + Object.keys(H).length + '|' + (bot ? 'b' : 'c');
   if (RK.k === ck) return RK.v;
   const cd = bot ? null : new Set(cleanDays()), skip = bot ? /outage|partial|dst/ : BADF;
@@ -1305,7 +1306,7 @@ function renderSada({ L, on, cNow, cEst }) {
   $('#cProj').innerHTML = proj ? `očekivano poseta danas · do sada <b class="num">${cEst ? '≈ ' : ''}${N(cNow)}</b>` : `posete do sada · <span class="dt">${projWhy(L.tsm)}</span>`;
   // isti skup kao na racunaru: vs ocekivano (ocena, bez sumnjivih) · juce · pre 7 d (bilo juce / -7 / -14 sirovo sa botom = zeleno +55 % ispod ocene)
   $('#cDl').innerHTML = (vd && !vd.early && vd.dev != null ? `<span class="pl">vs očekivano ${pill(vd.dev, vd.thr)}</span>` : '') +
-    [1, 7].map(back => { const y = dayAt(back, L.tsm, 0); return y ? `<span class="pl">${back === 1 ? 'juče' : 'pre 7 d'} ${pill(cNow / y - 1, CMP_DAY)}</span>` : ''; }).join('');
+    [1, 7].map(back => { const y = dayAt(back, L.tsm, 0), bf = ((H[addDays(S.today, -back)] || {}).f || '').includes('bot'); return y ? `<span class="pl">${back === 1 ? 'juče' : 'pre 7 d'} ${pill(cNow / y - 1, CMP_DAY)}${bf ? ' <span class="fl">⚠ bot</span>' : ''}</span>` : ''; }).join('');   // 10.10.2026: ⚠ bot kad je dan poredjenja nosio bota (kao racunar; boja pila ostaje)
   const nb = L.u - (L.g.bots || 0);
   $('#cSub').innerHTML = [eY && !eY.x && eY.c ? `juče ukupno <b class="num">${N(eY.c)}</b>` : '', L.nw != null && nb > 0 ? `novi <b class="num">${P(100 * L.nw / nb, 0)}</b>` : '',
     L.pv != null && nb > 0 ? `strane <b class="num">${K(L.pv)}</b> · <b class="num">${(L.pv / nb).toFixed(1).replace('.', ',')}</b> po poseti` : ''].filter(Boolean).join(' · ');   // pregledi strana (format 2)
@@ -1317,8 +1318,13 @@ function renderSada({ L, on, cNow, cEst }) {
   const ob = $('#oBy');
   if (L.og) {
     const tot = Object.values(L.og).reduce((s, v) => s + v, 0) || 1;
-    const items = tableRows().filter(r => r[0] !== 'search' && r[0] !== 'part').map(([key, label, , keys, c]) => [label, c, cum(L.og, keys)]).filter(x => x[2] > 0).sort((a, b) => (b[0] === 'Google') - (a[0] === 'Google') || b[2] - a[2]);   // Google prvi, ostali po broju — kao kartica Online sada na racunaru
+    const items = tableRows().filter(r => r[0] !== 'search' && r[0] !== 'part').map(([key, label, , keys, c]) => [key === 'direct' ? 'Direktno + nepovezani' : label, c, cum(L.og, keys)]).filter(x => x[2] > 0).sort((a, b) => (b[0] === 'Google') - (a[0] === 'Google') || b[2] - a[2]);   // Google prvi, ostali po broju — kao kartica Online sada na racunaru
     ob.hidden = !items.length; ob.innerHTML = items.map(([l, c, v]) => `<span class="pl">${sw(c)}${l} <b class="num">${N(v)}</b> <span class="dt">${P(100 * v / tot, 0)}</span></span>`).join('');
+    // 10.10.2026 (isti racun kao racunar live.py online.unl): online bez referera je ~12x veci od dolazaka direktnih u 60 min (referisani ≈ 1x) ->
+    // iz izvora = referisani online + direktni koliko ih je stvarno doslo u 60 min; nepovezani = ostatak direktnih + interno (self); botovi posebno
+    const dIn = arrivals(['direct'], 60), dOn = L.og.direct || 0;
+    if (dIn != null) { const dl = Math.min(dOn, Math.round(dIn)), unl = (dOn - dl) + (L.og.self || 0), bots = L.og.bots || 0;
+      ob.innerHTML += `<span class="pl dt">iz izvora <b class="num">≈ ${N(Math.max(0, tot - unl - bots))}</b> · nepovezani <b class="num">≈ ${N(unl)}</b> · botovi <b class="num">${N(bots)}</b></span>`; }
   } else ob.hidden = true;
   const t1 = L.at, onPts = S.rows.filter(x => x.on != null && x.at >= t1 - 7200).map(x => [x.at, x.on]);
   const mn = onPts.length ? Math.min(...onPts.map(p => p[1])) : 0, mxo = onPts.length ? Math.max(...onPts.map(p => p[1])) : 0;
@@ -1534,8 +1540,9 @@ function openDay(d) {
 const INFO = {
   'Puls dana': `<p><b>Veliki broj</b> = očekivano poseta do kraja dana: do sada + ostatak referisanih (projekcija iz oblika poslednjih 7 dana) × današnji odnos poseta/referisane × k (koliko je taj odnos u ostatku dana obično niži — direktni stižu ravno preko dana, referisani uveče).</p>
 <p><b>Ocena dana</b> poredi projekciju BEZ sumnjivih direktnih (= projekcija referisanih × normalan odnos poseta/referisane iz čistih dana) sa očekivanim (očekivane referisane: medijana 7 dana × dan u nedelji, × isti odnos). Sumnjivi direktni = direktno iznad uobičajenog za ovo doba dana (od 20.9 skrejper bez referera). Dobar / Slabiji dan = razlika preko praga (šum nivoa + nesigurnost projekcije), Odličan / Loš = preko 1,6 praga; boja kartice i kruga prati ocenu (zeleno / plavo = običan / crveno).</p>
-<p><b>Pilovi</b>: vs očekivano = ocena dana; juče / pre 7 d = posete do sada prema istom dobu tog dana (sirovo, sa botom). <b>Čipovi</b> = projekcija izvora prema njegovom očekivanom; dodir otvara detalje. Traka = koliki je deo projekcije već stigao.</p>`,
-  'Online sada': `<p>Aktivni posetioci u poslednjih 60 min (klon JSON, isti broj kao na računaru), uz 15 i 5 min. <b>Po izvoru</b> = iz istog reda, tačno (nije procena). Grafik = online po minutu u poslednja 2 h.</p>`,
+<p><b>Pilovi</b>: vs očekivano = ocena dana; juče / pre 7 d = posete do sada prema istom dobu tog dana (sirovo; <b>⚠ bot</b> = taj dan je nosio bota, Posete tog dana su naduvane — čisto poređenje daju Referisane u tabu Dan). <b>Čipovi</b> = projekcija izvora prema njegovom očekivanom; dodir otvara detalje. Traka = koliki je deo projekcije već stigao.</p>`,
+  'Online sada': `<p>Aktivni posetioci u poslednjih 60 min (klon JSON, isti broj kao na računaru), uz 15 i 5 min. <b>Po izvoru</b> = iz istog reda, tačno (nije procena). Grafik = online po minutu u poslednja 2 h.</p>
+<p><b>Direktno + nepovezani</b>: online bez referera je oko 12× veći od dolazaka direktnih u 60 min, dok je za Google, Bing, Trade… online ≈ dolasci u 60 min. Taj bazen stoji ceo dan (oko polovine onlajna, a direktni su 16–20 % poseta) = posetioci svih izvora koje izvor nije povezao sa ulaskom + trajni crawleri, ne pravi direktni. Red ispod: <b>iz izvora</b> = referisani online + direktni koliko ih je stvarno došlo u 60 min; <b>nepovezani</b> = ostatak direktnih + interno; botovi posebno (procena, ≈; isti račun kao na računaru).</p>`,
   'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs juče</b> = do sada prema istom dobu juče; pun pil preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Dodir na red = detalji izvora.</p>`,
   'Dolasci po 10 min': `<p>Novi posetioci po 10-minutnom prozoru u poslednja 2 h: organic (pretraživači), partneri (trade + sopstvene grupe), direktno (bez referera; od 20.9 pretežno skrejper).</p>`,
   'Referenti': `<p>Pojedinačni refereri: dolasci u poslednjih 30 min (prva kolona) i ukupno danas. Bez direktnih i botova.</p>`,
