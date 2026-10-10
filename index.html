@@ -177,8 +177,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <section class="card">
       <div class="ct"><h2>Online sada</h2><span>aktivni u 60 min</span></div>
       <div class="row"><div class="big num" id="oV">—</div></div>
-      <div class="sub" id="oSub"></div>
       <div class="sub" id="oExp"></div>
+      <div class="sub" id="oSub"></div>
       <div class="plr" id="oBy" hidden></div>
       <div id="chOn"></div>
     </section>
@@ -221,7 +221,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
       <div class="ct"><h2>Online danas</h2><span>aktivni u 60 min · po 10 min</span></div>
       <div class="sub" id="odMeta" style="margin-top:0"></div>
       <div id="chOnDay"></div>
-      <div class="legend"><span><span class="sw" style="background:var(--green)"></span>ukupno danas</span><span><span class="sw" style="background:var(--blue)"></span>iz izvora danas</span><span><span class="sw" style="background:var(--text-3)"></span>isprekidano = uobičajeno (medijana čistih dana)</span></div>
+      <div class="legend"><span><span class="sw" style="background:var(--green)"></span>iz izvora danas</span><span><span class="sw" style="background:var(--text-2)"></span>isprekidano = uobičajeno (medijana čistih dana)</span><span><span class="sw" style="background:var(--text-3)"></span>ukupno sa nepovezanima (tanko)</span></div>
     </section>
     <section class="card">
       <div class="ct"><h2 id="hTitle">Po satu</h2><span>pil = danas prema tom danu</span></div>
@@ -1158,12 +1158,13 @@ function onNorm(m, k = 3) {
 function renderOnDay(L) {
   const T = onPts(S.day, 3), R = onPts(S.day, 8), E = [], ER = [], nd = onDays().length;
   for (let g = 0; g <= 1440; g += 10) { const v = onNorm(g, 3), r = onNorm(g, 8); if (v) E.push([g, v.e]); if (r) ER.push([g, r.e]); }
-  const ok = lineChart($('#chOnDay'), [{ pts: E, color: 'var(--text-3)', w: 1.2, dash: '4 4' }, { pts: T, color: 'var(--green)', w: 2, fill: true }, { pts: ER, color: 'var(--blue)', w: 1.2, dash: '4 4' }, { pts: R, color: 'var(--blue)', w: 2 }],
+  // 15:43 (Raleov GO): iz izvora glavno (zeleno + isprekidana norma), ukupno sa nepovezanima tanko sivo (+ bleda isprekidana norma)
+  const ok = lineChart($('#chOnDay'), [{ pts: E, color: 'var(--text-3)', w: 0.8, dash: '2 4' }, { pts: T, color: 'var(--text-3)', w: 1.1 }, { pts: ER, color: 'var(--text-2)', w: 1.4, dash: '4 4' }, { pts: R, color: 'var(--green)', w: 2.2, fill: true }],
     { x0: 0, x1: 1440, y0: 0, grid: [360, 720, 1080], xl: t => String(t / 60).padStart(2, '0') + 'h', h: 120, top: K });
   const rNow = L ? refOn(L) : null, ON = L && L.tsm != null && L.on != null ? onNorm(L.tsm, 3) : null, OR = L && L.tsm != null && rNow != null ? onNorm(L.tsm, 8) : null;
   $('#odMeta').innerHTML = !ok ? '<span class="dt">online po 10 min stiže iz izvora</span>' :
-    (rNow != null ? `iz izvora <b class="num">${N(rNow)}</b>${OR ? ` · uobičajeno <b class="num">≈ ${N(OR.e)}</b> ${pill(rNow / OR.e - 1, ON_THR)}` : ''}<br>` : '') +
-    `ukupno <b class="num">${N(L.on)}</b>` + (ON ? ` · uobičajeno <b class="num">≈ ${N(ON.e)}</b> ${pill(L.on / ON.e - 1, ON_THR)} <span class="dt">${ON.n} čistih dana</span>` : ` <span class="dt">uobičajeno stiže kad telefon ima 3 čista dana iz izvora (sada ${nd})</span>`);
+    (rNow != null ? `iz izvora <b class="num">${N(rNow)}</b>${OR ? ` · uobičajeno <b class="num">≈ ${N(OR.e)}</b> ${pill(rNow / OR.e - 1, ON_THR)} <span class="dt">${OR.n} čistih dana</span>` : ` <span class="dt">uobičajeno stiže kad telefon ima 3 čista dana iz izvora (sada ${nd})</span>`}<br><span class="dt">ukupno sa nepovezanima ${N(L.on)}${ON ? ` · uobičajeno ≈ ${N(ON.e)} (bez pila: bazen se koleba ±25 %)` : ''}</span>`
+      : `ukupno <b class="num">${N(L.on)}</b>` + (ON ? ` · uobičajeno <b class="num">≈ ${N(ON.e)}</b> ${pill(L.on / ON.e - 1, ON_THR)} <span class="dt">${ON.n} čistih dana</span>` : ''));
 }
 function projC(L, cNow) {
   const hNow = kcum(L.g, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm);
@@ -1254,11 +1255,12 @@ function render() {
   const d = new Date(S.today + 'T12:00:00');
   $('#hDate').textContent = d.toLocaleDateString('sr-Latn', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hms(L.at).slice(0, 5);
   const on = L.on;     // JEDAN broj online = poslednji red (klon JSON, +-1 %/min), isti kao na racunaru; medijana 3 reda je bila za cirby doba (audit 4.10.2026)
-  $('#onN').textContent = N(on); $('#onPill').classList.toggle('off', age > 300 || on == null);
+  const rHd = refOn(L);   // 10.10.2026 15:43 (Raleov GO): broj „online" = IZ IZVORA; klonov ukupan online (sa bazenom nepovezanih) u tooltip-u
+  $('#onN').textContent = N(rHd != null ? rHd : on); $('#onPill').classList.toggle('off', age > 300 || on == null);
   // 10.10.2026: pil = online IZ IZVORA prema uobicajenom u ovo doba (ukupno se koleba ±25 % zbog bazena nepovezanih); isti broj kao racunar
-  const rH = refOn(L), ONH = rH != null && L.tsm != null ? onNorm(L.tsm, 8) : null, ONT = on != null && L.tsm != null ? onNorm(L.tsm, 3) : null;
+  const rH = rHd, ONH = rH != null && L.tsm != null ? onNorm(L.tsm, 8) : null;
   $('#onDev').innerHTML = ONH ? ' ' + pill(rH / ONH.e - 1, ON_THR) : '';
-  $('#onPill').title = 'Aktivni posetioci u poslednjih 60 min' + (ONH ? ` · iz izvora ${N(rH)} prema uobičajenom ≈ ${N(ONH.e)} (medijana ${ONH.n} čistih dana)` : '') + (ONT ? ` · ukupno prema uobičajenom ≈ ${N(ONT.e)}` : '');
+  $('#onPill').title = (rHd != null ? `Online iz izvora u poslednjih 60 min (bez direktnih, internih i botova) · ukupno sa nepovezanima ${N(on)}` : 'Aktivni posetioci u poslednjih 60 min') + (ONH ? ` · uobičajeno u ovo doba ≈ ${N(ONH.e)} (medijana ${ONH.n} čistih dana)` : '');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab));
   $('#tSada').hidden = S.tab !== 'sada'; $('#tDan').hidden = S.tab !== 'dan'; $('#tDani').hidden = S.tab !== 'dani';
   const ctx = { L, on, cNow: L.uv != null ? L.uv : L.u * kOf(S.day), cEst: L.uv == null };
@@ -1347,7 +1349,8 @@ function verdict(L, proj) {
 const DRV = [['google', 'Google'], ['search', 'Organic'], ['part', 'Partneri'], ['direct', 'Direktno'], ['bing', 'Bing'], ['duckduckgo', 'DDG']];
 function renderSada({ L, on, cNow, cEst }) {
   const eY = H[prevDate(S.today)], proj = projC(L, cNow);
-  $('#oV').textContent = N(on);
+  const rX = refOn(L);   // 10.10.2026 15:43 (Raleov GO): veliki broj = IZ IZVORA; ukupno sitno ispod bez pila
+  $('#oV').textContent = N(rX != null ? rX : on);
   // glavni broj = PROJEKCIJA dana (kao na racunaru), do sada sitno; dok projekcije nema (pre 03:00 / bez istorije) glavni broj je do sada
   $('#cV').textContent = proj ? N(proj) : (cEst ? '≈ ' : '') + N(cNow);
   const vd = verdict(L, proj), ve = $('#cVd'), pb = $('#cPb');
@@ -1372,13 +1375,14 @@ function renderSada({ L, on, cNow, cEst }) {
     L.pv != null && nb > 0 ? `strane <b class="num">${K(L.pv)}</b> · <b class="num">${(L.pv / nb).toFixed(1).replace('.', ',')}</b> po poseti` : ''].filter(Boolean).join(' · ');   // pregledi strana (format 2)
   $('#cQ').textContent = cEst ? '≈ procena: server izvora je danas restartovan' : '';
   const AK = allKeys();
-  const o515 = L.on5 != null ? `5 min <b class="num">${N(L.on5)}</b> · 15 min <b class="num">${N(L.on15)}</b> · 60 min <b class="num">${N(L.on)}</b>` : '';
+  const o515 = rX != null ? `ukupno sa nepovezanima <b class="num">${N(L.on)}</b>${L.on5 != null ? ` · 5 min <b class="num">${N(L.on5)}</b> · 15 min <b class="num">${N(L.on15)}</b>` : ''}`
+    : (L.on5 != null ? `5 min <b class="num">${N(L.on5)}</b> · 15 min <b class="num">${N(L.on15)}</b> · 60 min <b class="num">${N(L.on)}</b>` : '');
   $('#oSub').innerHTML = [o515, L.rst ? 'puni se oko 1 h posle restarta servera' : ''].filter(Boolean).join('<br>');
   // 10.10.2026 (korak 1): uobicajeno u ovo doba + pil; isprekidana linija na grafiku 2 h (isti racun kao racunar live.py online.exp)
-  const ONX = on != null && L.tsm != null ? onNorm(L.tsm, 3) : null, rX = refOn(L), ORX = rX != null && L.tsm != null ? onNorm(L.tsm, 8) : null, day0 = L.at - L.tsm * 60, expPts = [];
-  if (ONX) for (let g = Math.max(0, Math.floor((L.tsm - 120) / 10) * 10); g <= L.tsm; g += 10) { const v = onNorm(g, 3); if (v) expPts.push([day0 + g * 60, v.e]); }
-  $('#oExp').innerHTML = (ORX ? `iz izvora <b class="num">${N(rX)}</b> · uobičajeno u ovo doba <b class="num">≈ ${N(ORX.e)}</b> ${pill(rX / ORX.e - 1, ON_THR)}<br>` : '') +
-    (ONX ? `ukupno · uobičajeno <b class="num">≈ ${N(ONX.e)}</b> ${pill(on / ONX.e - 1, ON_THR)} <span class="dt">medijana ${ONX.n} čistih dana · nepovezani kolebaju · isprekidano na grafiku</span>` : '');
+  // 15:43: samo norma IZ IZVORA (ukupno nema pil — bazen nepovezanih ±25 %); isprekidana linija 2 h = norma iz izvora
+  const useRef = rX != null, ORX = L.tsm != null ? onNorm(L.tsm, useRef ? 8 : 3) : null, day0 = L.at - L.tsm * 60, expPts = [];
+  if (ORX) for (let g = Math.max(0, Math.floor((L.tsm - 120) / 10) * 10); g <= L.tsm; g += 10) { const v = onNorm(g, useRef ? 8 : 3); if (v) expPts.push([day0 + g * 60, v.e]); }
+  $('#oExp').innerHTML = ORX ? `uobičajeno u ovo doba <b class="num">≈ ${N(ORX.e)}</b> ${pill((useRef ? rX : on) / ORX.e - 1, ON_THR)} <span class="dt">medijana ${ORX.n} čistih dana · isprekidano na grafiku</span>` : (useRef ? `<span class="dt">uobičajeno stiže kad telefon ima 3 čista dana iz izvora (sada ${onDays().length})</span>` : '');
   // online po izvoru iz samog reda (format 2, 60 min): isti brojevi kao kartica Online sada na racunaru
   const ob = $('#oBy');
   if (L.og) {
@@ -1389,9 +1393,9 @@ function renderSada({ L, on, cNow, cEst }) {
     // iz izvora = referisani online + direktni koliko ih je stvarno doslo u 60 min; nepovezani = ostatak direktnih + interno (self); botovi posebno
     const dIn = arrivals(['direct'], 60), dOn = L.og.direct || 0;
     if (dIn != null) { const dl = Math.min(dOn, Math.round(dIn)), unl = (dOn - dl) + (L.og.self || 0), bots = L.og.bots || 0;
-      ob.innerHTML += `<span class="pl dt">iz izvora <b class="num">≈ ${N(Math.max(0, tot - unl - bots))}</b> · nepovezani <b class="num">≈ ${N(unl)}</b> · botovi <b class="num">${N(bots)}</b></span>`; }
+      ob.innerHTML += `<span class="pl dt">iz izvora <b class="num">${N(rX != null ? rX : Math.max(0, tot - unl - bots))}</b> · direktno <b class="num">≈ ${N(dl)}</b> · nepovezani <b class="num">≈ ${N(unl)}</b> · botovi <b class="num">${N(bots)}</b></span>`; }   // 15:43: podela ukupnog, iz izvora = veliki broj
   } else ob.hidden = true;
-  const t1 = L.at, onPts = S.rows.filter(x => x.on != null && x.at >= t1 - 7200).map(x => [x.at, x.on]);
+  const t1 = L.at, onPts = S.rows.filter(x => x.at >= t1 - 7200 && (useRef ? refOn(x) != null : x.on != null)).map(x => [x.at, useRef ? refOn(x) : x.on]);   // 15:43: kriva 2 h = iz izvora
   const allOn = onPts.concat(expPts), mn = allOn.length ? Math.min(...allOn.map(p => p[1])) : 0, mxo = allOn.length ? Math.max(...allOn.map(p => p[1])) : 0;
   lineChart($('#chOn'), [{ pts: expPts, color: 'var(--text-3)', w: 1.2, dash: '4 4' }, { pts: onPts, color: 'var(--green)', w: 2, fill: true }], { x0: t1 - 7200, x1: t1, y0: Math.max(0, mn - (mxo - mn) - 5), h: 64 });
   // izvori
@@ -1607,10 +1611,10 @@ const INFO = {
   'Puls dana': `<p><b>Veliki broj</b> = očekivano poseta do kraja dana: do sada + ostatak referisanih (projekcija iz oblika poslednjih 7 dana) × današnji odnos poseta/referisane × k (koliko je taj odnos u ostatku dana obično niži — direktni stižu ravno preko dana, referisani uveče).</p>
 <p><b>Ocena dana</b> poredi projekciju BEZ sumnjivih direktnih (= projekcija referisanih × normalan odnos poseta/referisane iz čistih dana) sa očekivanim (očekivane referisane: medijana 7 dana × dan u nedelji, × isti odnos). Sumnjivi direktni = direktno iznad uobičajenog za ovo doba dana (od 20.9 skrejper bez referera). Dobar / Slabiji dan = razlika preko praga (šum nivoa + nesigurnost projekcije), Odličan / Loš = preko 1,6 praga; boja kartice i kruga prati ocenu (zeleno / plavo = običan / crveno).</p>
 <p><b>Pilovi</b>: vs očekivano = ocena dana; juče / pre 7 d = posete do sada prema istom dobu tog dana (sirovo; <b>⚠ bot</b> = taj dan je nosio bota, Posete tog dana su naduvane — čisto poređenje daju Referisane u tabu Dan). <b>Čipovi</b> = projekcija izvora prema njegovom očekivanom; dodir otvara detalje. Traka = koliki je deo projekcije već stigao.</p>`,
-  'Online sada': `<p>Aktivni posetioci u poslednjih 60 min (klon JSON, isti broj kao na računaru), uz 15 i 5 min. <b>Po izvoru</b> = iz istog reda, tačno (nije procena). Grafik = online po minutu u poslednja 2 h.</p>
-<p><b>vs uobičajeno</b> (pil uz online broj, i u zaglavlju) = online <b>iz izvora</b> (ukupno bez direktnih, internih i botova) prema medijani poslednjih 7 čistih dana u istom minutu (tačke na 10 min iz izvora; isti račun i broj kao na računaru); pun pil preko 15 %. Zašto iz izvora: ukupan online nosi bazen nepovezanih koji se koleba ±25 % iz dana u dan, a iz izvora ±5 % — ukupno prema uobičajenom stoji u drugom redu. Isprekidana linija na grafiku = uobičajeno ukupno. Čisti dani = bez bota i ispada; telefon ih ima iz izvora do 15 dana unazad, pa norma raste svakim danom.</p>
+  'Online sada': `<p><b>Veliki broj = online iz izvora</b>: posetioci koji su u poslednjih 60 min došli preko pretraživača ili partnera i još su aktivni (bez direktnih, internih i botova). Taj broj se iz dana u dan ponavlja u okviru ±5 %, pa <b>pil prema uobičajenom</b> (medijana poslednjih 7 čistih dana u istom minutu; pun pil preko 15 %) stvarno znači nešto. Isti broj i pil stoje u zaglavlju; isti račun kao na računaru.</p>
+<p><b>Ukupno sa nepovezanima</b> (sitno) = klonov online: uz posetioce iz izvora broji i bazen sesija bez referera (posetioci svih izvora koje izvor nije povezao sa ulaskom + crawleri). Bazen se koleba ±25 % iz dana u dan bez veze sa posetama, zato ukupno nema pil. <b>Po izvoru</b> = iz istog reda, tačno; red ispod = podela ukupnog (iz izvora + direktno koliko ih je stvarno došlo + nepovezani + botovi). Grafik = iz izvora po minutu u poslednja 2 h, isprekidano = uobičajeno. Čisti dani = bez bota i ispada; telefon ih ima iz izvora do 15 dana unazad, pa norma raste svakim danom.</p>
 <p><b>Direktno + nepovezani</b>: online bez referera je oko 12× veći od dolazaka direktnih u 60 min, dok je za Google, Bing, Trade… online ≈ dolasci u 60 min. Taj bazen stoji ceo dan (oko polovine onlajna, a direktni su 16–20 % poseta) = posetioci svih izvora koje izvor nije povezao sa ulaskom + trajni crawleri, ne pravi direktni. Red ispod: <b>iz izvora</b> = referisani online + direktni koliko ih je stvarno došlo u 60 min; <b>nepovezani</b> = ostatak direktnih + interno; botovi posebno (procena, ≈; isti račun kao na računaru).</p>`,
-  'Online danas': `<p>Online (aktivni u 60 min) po 10 minuta danas prema <b>uobičajenom</b>: medijana poslednjih 7 čistih dana u istom minutu (bez bot dana i ispada; izvor čuva redove 30 dana, telefon drži 15). Zeleno = ukupno, plavo = <b>iz izvora</b> (bez direktnih, internih i botova) — to je pravi signal, jer ukupno nosi bazen nepovezanih koji se koleba ±25 % iz dana u dan. Zamena za histats naviku „u ovo doba ima toliko online": linija uz svoju isprekidanu = običan dan. Isti račun i brojevi kao na računaru (Tok dana → online).</p>`,
+  'Online danas': `<p><b>Zeleno = online iz izvora</b> (posetioci iz pretraživača i od partnera aktivni u 60 min) po 10 minuta danas, isprekidano = <b>uobičajeno</b> u isto doba (medijana poslednjih 7 čistih dana; bez bot dana i ispada; izvor čuva redove 30 dana, telefon drži 15). Tanko sivo = ukupno sa nepovezanima (bazen koji se koleba ±25 % iz dana u dan, zato bez pila). Zamena za histats naviku „u ovo doba ima toliko online": zelena linija uz isprekidanu = običan dan. Isti račun i brojevi kao na računaru (Tok dana → online).</p>`,
   'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs juče</b> = do sada prema istom dobu juče; pun pil preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Dodir na red = detalji izvora.</p>`,
   'Dolasci po 10 min': `<p>Novi posetioci po 10-minutnom prozoru u poslednja 2 h: organic (pretraživači), partneri (trade + sopstvene grupe), direktno (bez referera; od 20.9 pretežno skrejper).</p>`,
   'Referenti': `<p>Pojedinačni refereri: dolasci u poslednjih 30 min (prva kolona) i ukupno danas. Bez direktnih i botova.</p>`,
