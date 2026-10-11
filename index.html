@@ -1363,7 +1363,7 @@ function renderSada({ L, on, cNow, cEst }) {
   }).join('') : '';
   dr.hidden = !chips; dr.innerHTML = chips ? '<span class="pl dt">izvori: projekcija prema očekivanom · dodir = detalji</span>' + chips : '';
   const VDI = { boost: '▲', up: '▲', normal: '≈', down: '▼', drop: '▼', early: '◔' };   // krug sa ikonom kao na racunaru (#vdIc)
-  if (vd) ve.innerHTML = `<i class="vdi" aria-hidden="true">${VDI[vd.status] || '●'}</i>${vd.title}${vd.early ? '' : ` <b class="vdd">${vd.dev > 0 ? '+' : '−'}${P(Math.abs(vd.dev) * 100, Math.abs(vd.dev) >= .0995 ? 0 : 1)}</b>`}<span>projekcija ${N(vd.clean)}${vd.sus > 0 ? ' bez ≈ ' + N(vd.sus) + ' sumnjivih direktnih' : ''} · očekivano ${N(vd.level)}</span>`;
+  if (vd) ve.innerHTML = `<i class="vdi" aria-hidden="true">${VDI[vd.status] || '●'}</i>${vd.title}${vd.early ? '' : ` <b class="vdd">${vd.dev > 0 ? '+' : '−'}${P(Math.abs(vd.dev) * 100, Math.abs(vd.dev) >= .0995 ? 0 : 1)}</b>`}<span>${vd.sus > 0 ? `projekcija ${N(vd.clean)} bez ≈ ${N(vd.sus)} sumnjivih direktnih` : N(vd.clean) !== N(proj) ? `projekcija ${N(proj)} · čisto ${N(vd.clean)}` : `projekcija ${N(vd.clean)}`} · očekivano ${N(vd.level)}</span>`;   // 11.10.2026: tri oblika kao racunar sources.compute — cist dan; sa sumnjivima „bez ≈“; sumnjivih ima a k-projekcija <= c_mix -> hero nosi k-projekciju, ocena c_mix, oba broja u tekstu
   pb.hidden = !proj; if (proj) pb.firstElementChild.style.width = Math.min(100, 100 * cNow / proj).toFixed(1) + '%';
   $('#cMeta').textContent = 'red ' + hms(L.at);
   $('#cProj').innerHTML = proj ? `očekivano poseta danas · do sada <b class="num">${cEst ? '≈ ' : ''}${N(cNow)}</b>` : `posete do sada · <span class="dt">${projWhy(L.tsm)}</span>`;
