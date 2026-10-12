@@ -314,7 +314,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
-const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', bot: 'puls.m.bot', cmp: 'puls.m.cmp', cm: 'puls.m.cm', ks: 'puls.m.ks', de: 'puls.m.de' };
+const LS = { cfg: 'puls.m.cfg', day: d => 'puls.m.day.' + d, theme: 'puls.m.theme', hist: 'puls.m.hist', tab: 'puls.m.tab', rng: 'puls.m.rng', cv: 'puls.m.cv', bot: 'puls.m.bot', cmp: 'puls.m.cmp', cm: 'puls.m.cm', ks: 'puls.m.ks', de: 'puls.m.de', ka: 'puls.m.ka' };
 const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
              has(k) { try { return localStorage.getItem(k) != null; } catch (e) { return false; } } };
@@ -662,7 +662,7 @@ async function load(first) {
         S.w2day = ls.get(LS.day(addDays(date, -14)));
       }
       if (S.hold) { S.last = head; S.err = null; render(); return; }
-      if (!S.last) { S.last = head; render(); }
+      if (!S.last) { S.last = head; anchorK(); render(); }   // 12.10.2026: sacuvano danasnje sidro vec u prvom crtanju
     }
     // danas: od poslednjeg sacuvanog reda, ali najmanje poslednjih KEEP_MIN minuta (dolasci 5/30 min traze redove po minutu)
     let other = false;
@@ -795,10 +795,15 @@ async function loadAnchor() {
   const s = (last.h - last.p) / sRef, p = last.p / pRef;
   if (!ok(s) || !ok(p)) return false;
   KA.m = last.m; KA.s = s; KA.p = p;
+  ls.set(LS.ka, { d: S.today, m: last.m, s, p });   // 12.10.2026: sledece otvaranje danas krece od ovog odnosa
   return true;
 }
 function anchorK() {
   if (KA.d === S.today && KA.s && Date.now() - KA.at < 1800000) { KS = { s: KA.s, p: KA.p, src: 'h' }; return true; }
+  // 12.10.2026 (Raleov GO 20:34): do svezeg sidra = poslednje DANASNJE sidro sa ovog telefona, ne medijana celog dana iz uvezenih dana
+  // (uvece je ta medijana ~0,5 % niza: 12.10 20:24 s 0,9866 prema 0,9913 -> Organic/Partneri/ocena ~0,4 pp nize prvih sekundi posle otvaranja)
+  const sv = ls.get(LS.ka), ok = v => v > 0.9 && v < 1.1;
+  if (sv && sv.d === S.today && ok(sv.s) && ok(sv.p)) { KS = { s: sv.s, p: sv.p, src: 'ha' }; return true; }
   return false;
 }
 function learnK() {
@@ -1086,6 +1091,9 @@ function dirSusNow(L) {
   const ld = lvl('direct', e => e.g ? e.g.direct : null, true), rD = mxRatio('direct', ['direct'], L.tsm);
   return ld && ld.L && rD ? Math.max(0, (L.g.direct || 0) - ld.L / rD) : null;
 }
+// ⚠ na Direktnom (12.10.2026, Raleov GO 20:34; racunar dirBot isto): sumnjivi DO SADA > 0 I Direktno iznad svog praga (pil bi inace bio pun
+// zelen); visak unutar praga je sum -> obican pil. Do 12.10 telefon je gledao PROJEKCIJU sumnjivih (vd.sus), racunar sumnjive DO SADA -> razlicit ⚠.
+const dirBot = (L, st) => !!(st && st.dev != null && !st.early && st.dev >= st.thr && dirSusNow(L) > 0);
 function todayBot(L, cNow) {
   if (ls.get(LS.bot) === S.today) return true;
   if (!L || !(cNow > 0)) return false;
@@ -1359,7 +1367,7 @@ function renderSada({ L, on, cNow, cEst }) {
   const defs = tableRows(), dr = $('#cDrv');
   const chips = vd && !vd.early ? DRV.map(([k, lbl]) => {
     const def = defs.find(r => r[0] === k), st = def ? srcStat(k, def[3], kcum(L.g, def[3]), L.tsm) : null;
-    return st && st.dev != null ? `<span class="pl" data-k="${k}">${sw(def[4])}${lbl} ${statPill(st, k === 'direct' && vd.sus > 0)}</span>` : '';
+    return st && st.dev != null ? `<span class="pl" data-k="${k}">${sw(def[4])}${lbl} ${statPill(st, k === 'direct' && dirBot(L, st))}</span>` : '';
   }).join('') : '';
   dr.hidden = !chips; dr.innerHTML = chips ? '<span class="pl dt">izvori: projekcija prema očekivanom · dodir = detalji</span>' + chips : '';
   const VDI = { boost: '▲', up: '▲', normal: '≈', down: '▼', drop: '▼', early: '◔' };   // krug sa ikonom kao na racunaru (#vdIc)
@@ -1407,7 +1415,7 @@ function renderSada({ L, on, cNow, cEst }) {
   let html = '';
   for (const [key, label, cls, keys, c] of tableRows()) {
     const v = kcum(L.g, keys), st = vd && !vd.early && !NOPILL.has(key) ? srcStat(key, keys, v, L.tsm) : null;
-    html += tr(key, cls, c, label, v, arrivals(keys, 5), arrivals(keys, 30), st && st.dev != null ? statPill(st, key === 'direct' && vd.sus > 0) : none);
+    html += tr(key, cls, c, label, v, arrivals(keys, 5), arrivals(keys, 30), st && st.dev != null ? statPill(st, key === 'direct' && dirBot(L, st)) : none);
   }
   $('#sBody').innerHTML = html + tr('', 'total', '', 'ukupno', L.u, arrivals(AK, 5), arrivals(AK, 30), vd && !vd.early && vd.dev != null ? pill(vd.dev, vd.thr) : none);
   // stubici 12 x 10 min: pretrazivaci / partneri / direktno
@@ -1571,7 +1579,7 @@ function openSource(key) {
   const [, label, , keys, c] = def, L = S.hold ? Object.assign({}, S.last, { tsm: 1439 }) : S.last, D = detail(S.last), color = `var(--s-${c})`;
   const pts = day => day ? Object.values(day.s).filter(x => x[6]).map(x => [x[0], cum(x[6], keys)]).sort((a, b) => a[0] - b[0]) : [];
   const v = kcum(L.g, keys), hd = histDays(14).filter(x => x[1].g), pr = mxProj(key, keys, v, L.tsm), thr = ['search', 'google', 'part'].includes(key) ? CMP_DAY : CMP_HOUR;
-  const st = key === 'bots' ? null : srcStat(key, keys, v, L.tsm), vdN = key === 'direct' ? verdict(L, projC(L, L.uv != null ? L.uv : L.u * kOf(S.day))) : null, susNow = vdN ? vdN.sus : 0;
+  const st = key === 'bots' ? null : srcStat(key, keys, v, L.tsm);
   const cmpTr = CMP.map(([back, lbl, k]) => {
     const d = addDays(S.today, -back), e = H[d] && !H[d].x ? H[d] : null, a = grpAt(back, L.tsm, keys), en = mxEnd(key, keys, d);
     return `<tr><td>${ck(k)}${lbl}<br><span class="dt">${dstr(d)}</span></td><td class="num">${a != null ? `<span class="cv">${N(a)}</span>` + pill(a ? v / a - 1 : null, thr) : '<span class="dl none">—</span>'}</td><td class="num">${en != null ? `<span class="cv">${N(en)}</span>` + pill(en && pr ? pr / en - 1 : null, thr) : '<span class="dl none">—</span>'}</td></tr>`;
@@ -1580,7 +1588,7 @@ function openSource(key) {
   const ra = refArrivals(), list = D ? D.refs.filter(x => keys.includes(x[1])) : [];
   openSheet(label, `<div class="row"><div class="mid num">${N(v)}</div><span class="dt">do ${hms(L.at).slice(0, 5)}</span></div>
     <div class="proj">${pr ? `projekcija dana <b class="num">${N(pr)}</b>` : `<span class="dt">${projWhy(L.tsm)}</span>`}</div>
-    ${st && st.level ? `<div class="sub">očekivano <b class="num">${N(st.level)}</b> ${statPill(st, key === 'direct' && susNow > 0)} <span class="dt">medijana 7 dana × dan u nedelji</span></div>` : ''}
+    ${st && st.level ? `<div class="sub">očekivano <b class="num">${N(st.level)}</b> ${statPill(st, key === 'direct' && dirBot(L, st))} <span class="dt">medijana 7 dana × dan u nedelji</span></div>` : ''}
     <div class="sub">5 min <b class="num">${N(arrivals(keys, 5))}</b> · 30 min <b class="num">${N(arrivals(keys, 30))}</b></div>
     ${L.pg && key !== 'bots' ? `<div class="sub">strane danas <b class="num">${pvF(L) > 1 ? '≈ ' : ''}${K(cum(L.pg, keys) * pvF(L))}</b>${cum(L.g, keys) ? ` · <b class="num">${(cum(L.pg, keys) * pvF(L) / cum(L.g, keys)).toFixed(1).replace('.', ',')}</b> po poseti` : ''}${L.og ? ` · online <b class="num">${N(cum(L.og, keys))}</b>` : ''}</div>` : ''}
     <h3>Prema prethodnim danima</h3>
