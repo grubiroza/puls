@@ -505,6 +505,24 @@ const S = { today: null, rows: [], day: null, yday: null, wday: null, w2day: nul
 const newDay = date => ({ date, last: null, s: {}, lastU: 0, v: 2 });   // v 2 (10.10.2026): bin nosi i online IZ IZVORA (x[8])
 // online IZ IZVORA iz reda = ukupno − direktno − interno − botovi (racunar klonjson.on_ref isto); null bez online po grupi (format 1)
 const refOn = row => row.og && row.on != null && 'direct' in row.og ? row.on - (row.og.direct || 0) - (row.og.self || 0) - (row.og.bots || 0) : null;
+// 14.10.2026 (Raleov GO 16:05): RESTART TOCIJEVOG IZVORA — onlines i online po grupi su brojaci u memoriji app servera: posle restarta krecu od nule
+// i pune prozor od 60 min (+~70/min), dok dolasci (zbir po refereru, iz baze) teku normalno -> pil „vs uobicajeno" bi pokazao pad koji ne postoji
+// (14.10 15:58 −26 %). Isto pravilo kao racunar klonjson.on_reset: online < 80 % prethodnog reda (razmak <= 30 min, prethodni >= 100) uz
+// dolaske >= 10/min = restart; {at, full, from, to} za poslednji restart dok traje punjenje (m − at < 60), inace null. rows = S.rows (minutni redovi danas)
+const ON_RESET = { drop: 0.8, gap: 30, inMin: 10, win: 60 };
+function onReset(rows, m) {
+  let last = null, prev = null;
+  for (const x of rows) {
+    if (x.on == null || x.tsm == null || x.tsm >= 1440) continue;
+    if (x.tsm > m) break;
+    const u = cum(x.g, Object.keys(x.g || {})), gap = prev ? x.tsm - prev.t : 0;
+    if (prev && prev.on >= 100 && gap > 0 && gap <= ON_RESET.gap && x.on < ON_RESET.drop * prev.on && u - prev.u >= ON_RESET.inMin * gap) last = { at: x.tsm, full: x.tsm + ON_RESET.win, from: prev.on, to: x.on };
+    prev = { t: x.tsm, on: x.on, u };
+  }
+  return last && m - last.at >= 0 && m - last.at < ON_RESET.win ? last : null;
+}
+const hmM = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(Math.round(m) % 60).padStart(2, '0');
+const refillTxt = R => `restart izvora u ${hmM(R.at)}: brojač online kreće od nule i puni prozor od 60 min (pun oko ${hmM(R.full)}) — do tada broj nije uporediv sa uobičajenim; dolasci se broje normalno`;
 // posete u binu: tacan broj kad ga red nosi, inace zbir po refereru x poslednji zdrav odnos tog dana (procena)
 const kOf = day => (day && day.k) || (S.yday && S.yday.k) || 0.9;
 const cOf = day => x => x[1] != null ? x[1] : (x[2] ? x[2] * kOf(day) : null);
@@ -1267,8 +1285,9 @@ function render() {
   $('#onN').textContent = N(rHd != null ? rHd : on); $('#onPill').classList.toggle('off', age > 300 || on == null);
   // 10.10.2026: pil = online IZ IZVORA prema uobicajenom u ovo doba (ukupno se koleba ±25 % zbog bazena nepovezanih); isti broj kao racunar
   const rH = rHd, ONH = rH != null && L.tsm != null ? onNorm(L.tsm, 8) : null;
-  $('#onDev').innerHTML = ONH ? ' ' + pill(rH / ONH.e - 1, ON_THR) : '';
-  $('#onPill').title = (rHd != null ? `Online iz izvora u poslednjih 60 min (bez direktnih, internih i botova) · ukupno sa nepovezanima ${N(on)}` : 'Aktivni posetioci u poslednjih 60 min') + (ONH ? ` · uobičajeno u ovo doba ≈ ${N(ONH.e)} (medijana ${ONH.n} čistih dana)` : '');
+  const RS = L.tsm != null ? onReset(S.rows, L.tsm) : null;   // 14.10.2026: restart izvora -> „puni se do HH:MM" umesto pila (racunar setOnDev isto)
+  $('#onDev').innerHTML = ONH ? ' ' + (RS ? `<span class="dl flat">puni se do ${hmM(RS.full)}</span>` : pill(rH / ONH.e - 1, ON_THR)) : '';
+  $('#onPill').title = (rHd != null ? `Online iz izvora u poslednjih 60 min (bez direktnih, internih i botova) · ukupno sa nepovezanima ${N(on)}` : 'Aktivni posetioci u poslednjih 60 min') + (ONH ? ` · uobičajeno u ovo doba ≈ ${N(ONH.e)} (medijana ${ONH.n} čistih dana)` : '') + (RS ? ` · ${refillTxt(RS)}` : '');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab));
   $('#tSada').hidden = S.tab !== 'sada'; $('#tDan').hidden = S.tab !== 'dan'; $('#tDani').hidden = S.tab !== 'dani';
   const ctx = { L, on, cNow: L.uv != null ? L.uv : L.u * kOf(S.day), cEst: L.uv == null };
@@ -1390,7 +1409,9 @@ function renderSada({ L, on, cNow, cEst }) {
   // 15:43: samo norma IZ IZVORA (ukupno nema pil — bazen nepovezanih ±25 %); isprekidana linija 2 h = norma iz izvora
   const useRef = rX != null, ORX = L.tsm != null ? onNorm(L.tsm, useRef ? 8 : 3) : null, day0 = L.at - L.tsm * 60, expPts = [];
   if (ORX) for (let g = Math.max(0, Math.floor((L.tsm - 120) / 10) * 10); g <= L.tsm; g += 10) { const v = onNorm(g, useRef ? 8 : 3); if (v) expPts.push([day0 + g * 60, v.e]); }
-  $('#oExp').innerHTML = ORX ? `uobičajeno u ovo doba <b class="num">≈ ${N(ORX.e)}</b> ${pill((useRef ? rX : on) / ORX.e - 1, ON_THR)} <span class="dt">medijana ${ORX.n} čistih dana · isprekidano na grafiku</span>` : (useRef ? `<span class="dt">uobičajeno stiže kad telefon ima 3 čista dana iz izvora (sada ${onDays().length})</span>` : '');
+  const RS = L.tsm != null ? onReset(S.rows, L.tsm) : null;   // 14.10.2026: restart izvora — bez pila dok se brojac puni (zaglavlje i racunar isto)
+  $('#oExp').innerHTML = ORX ? `uobičajeno u ovo doba <b class="num">≈ ${N(ORX.e)}</b> ` + (RS ? `<span class="dl flat">puni se do ${hmM(RS.full)}</span> <span class="dt">${refillTxt(RS)}</span>`
+    : `${pill((useRef ? rX : on) / ORX.e - 1, ON_THR)} <span class="dt">medijana ${ORX.n} čistih dana · isprekidano na grafiku</span>`) : (useRef ? `<span class="dt">uobičajeno stiže kad telefon ima 3 čista dana iz izvora (sada ${onDays().length})</span>` : '');
   // online po izvoru iz samog reda (format 2, 60 min): isti brojevi kao kartica Online sada na racunaru
   const ob = $('#oBy');
   if (L.og) {
@@ -1626,7 +1647,8 @@ const INFO = {
 <p><b>Pilovi</b>: vs očekivano = ocena dana; juče / pre 7 d = posete do sada prema istom dobu tog dana (sirovo; <b>⚠ bot</b> = taj dan je nosio bota, Posete tog dana su naduvane — čisto poređenje daju Referisane u tabu Dan). <b>Čipovi</b> = projekcija izvora prema njegovom očekivanom; dodir otvara detalje. Traka = koliki je deo projekcije već stigao.</p>`,
   'Online sada': `<p><b>Veliki broj = online iz izvora</b>: posetioci koji su u poslednjih 60 min došli preko pretraživača ili partnera i još su aktivni (bez direktnih, internih i botova). Taj broj se iz dana u dan ponavlja u okviru ±5 %, pa <b>pil prema uobičajenom</b> (medijana poslednjih 7 čistih dana u istom minutu; pun pil preko 15 %) stvarno znači nešto. Isti broj i pil stoje u zaglavlju; isti račun kao na računaru.</p>
 <p><b>Ukupno sa nepovezanima</b> (sitno) = klonov online: uz posetioce iz izvora broji i bazen sesija bez referera (posetioci svih izvora koje izvor nije povezao sa ulaskom + crawleri). Bazen se koleba ±25 % iz dana u dan bez veze sa posetama, zato ukupno nema pil. <b>Po izvoru</b> = iz istog reda, tačno; red ispod = podela ukupnog (iz izvora + direktno koliko ih je stvarno došlo + nepovezani + botovi). Grafik = iz izvora po minutu u poslednja 2 h, isprekidano = uobičajeno. Čisti dani = bez bota i ispada; telefon ih ima iz izvora do 15 dana unazad, pa norma raste svakim danom.</p>
-<p><b>Direktno + nepovezani</b>: online bez referera je oko 12× veći od dolazaka direktnih u 60 min, dok je za Google, Bing, Trade… online ≈ dolasci u 60 min. Taj bazen stoji ceo dan (oko polovine onlajna, a direktni su 16–20 % poseta) = posetioci svih izvora koje izvor nije povezao sa ulaskom + trajni crawleri, ne pravi direktni. Red ispod: <b>iz izvora</b> = referisani online + direktni koliko ih je stvarno došlo u 60 min; <b>nepovezani</b> = ostatak direktnih + interno; botovi posebno (procena, ≈; isti račun kao na računaru).</p>`,
+<p><b>Direktno + nepovezani</b>: online bez referera je oko 12× veći od dolazaka direktnih u 60 min, dok je za Google, Bing, Trade… online ≈ dolasci u 60 min. Taj bazen stoji ceo dan (oko polovine onlajna, a direktni su 16–20 % poseta) = posetioci svih izvora koje izvor nije povezao sa ulaskom + trajni crawleri, ne pravi direktni. Red ispod: <b>iz izvora</b> = referisani online + direktni koliko ih je stvarno došlo u 60 min; <b>nepovezani</b> = ostatak direktnih + interno; botovi posebno (procena, ≈; isti račun kao na računaru).</p>
+<p><b>„Puni se do HH:MM"</b> (sivo, umesto pila): Tocijev izvor je restartovan — broj online i online po izvoru kreću od nule i pune prozor od 60 min, dok se dolasci broje normalno (pad saobraćaja pokazuju dolasci i alarmi, ne online). Do punog prozora broj nije uporediv sa uobičajenim; isti račun na računaru.</p>`,
   'Online danas': `<p><b>Zeleno = online iz izvora</b> (posetioci iz pretraživača i od partnera aktivni u 60 min) po 10 minuta danas, isprekidano = <b>uobičajeno</b> u isto doba (medijana poslednjih 7 čistih dana; bez bot dana i ispada; izvor čuva redove 30 dana, telefon drži 15). Tanko sivo = ukupno sa nepovezanima (bazen koji se koleba ±25 % iz dana u dan, zato bez pila). Zamena za histats naviku „u ovo doba ima toliko online": zelena linija uz isprekidanu = običan dan. Isti račun i brojevi kao na računaru (Tok dana → online).</p>`,
   'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs očekivano</b> = projekcija izvora do kraja dana prema njegovom očekivanom (medijana 7 dana × dan u nedelji) — isti račun i pragovi kao glavna tabela na računaru i čipovi uz ocenu dana; pun pil = iznad praga tog izvora; ⚠ kod Direktnog = ima sumnjivih direktnih; red ukupno = ocena dana. Poređenje sa jučerašnjim danom po izvoru je u tabu Dan. Dodir na red = detalji izvora.</p>`,
   'Dolasci po 10 min': `<p>Novi posetioci po 10-minutnom prozoru u poslednja 2 h: organic (pretraživači), partneri (trade + sopstvene grupe), direktno (bez referera; od 20.9 pretežno skrejper).</p>`,
