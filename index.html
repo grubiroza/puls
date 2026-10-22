@@ -372,7 +372,7 @@ async function importHist(b64) {
   } catch (e) { NOTE = 'Uvoz istorije nije uspeo: ' + (e.message || e); }
 }
 function applyTheme() {
-  const t = ls.get(LS.theme) || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  const t = ls.get(LS.theme) || 'dark';   // 22.10.2026: tamna pocetna uvek (Rale), svetla samo dugmetom
   document.documentElement.dataset.theme = t;
   document.querySelector('meta[name=theme-color]').content = t === 'light' ? '#f4f2ec' : '#0e1014';
   // ikonica = AKTIVNA tema: sunce (svetla) / mesec (tamna); dodir menja
