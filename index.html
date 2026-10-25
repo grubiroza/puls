@@ -356,8 +356,9 @@ async function importHist(b64) {
     const doc = JSON.parse(txt);
     let n = 0;
     for (const r of doc.d) {
-      const [d, c, cd, cm, k, hu, hk, nw, bo, nb, fl, gv, bv, so, pa, es, pv] = r;
+      const [d, c, cd, cm, k, hu, hk, nw, bo, nb, fl, gv, bv, so, pa, es, pv, dst] = r;
       const e = { c, cd, cm, k: hk, h: hu, nw, bo, nb, f: fl || '', src: 'pc' };   // out = klonov hourly par (klikovi iz countries su kod starih dana druga mera)
+      if (dst && dst.hours) e.dst = dst;                                           // [17] visak sata dana sa pomeranjem sata (racunar dstfix) -> isti brojevi kao racunar
       if (gv) { e.g = {}; doc.gk.forEach((key, i) => { if (gv[i]) e.g[key] = gv[i]; }); }
       if (bv) e.b = bv;
       if (so != null && pa != null) { e.so = so; e.pa = pa; if (es) e.se = 1; }   // organic / partneri kraj dana na klonovoj skali (se = procena, dan pre 23.7.2026)
@@ -404,6 +405,41 @@ function groupOf(name, isbot, ispub) {
 }
 const SEARCH = ['google', 'bing', 'duckduckgo', 'yahoo', 'search_other', 'other', 'social'];
 const partKeys = () => ['trade'].concat(EXTRA.map(x => x.key));
+// ---- DAN SA POMERANJEM SATA (25.10.2026, Raleov GO; racunar dstfix.py = ISTI racun) ----
+// 25 h = poslednja nedelja oktobra (sat vracen 02→03: klon broji ponovljeni sat dvaput u iste minute, dan nosi ~3 % viska),
+// 23 h = poslednja nedelja marta (sat fali). Posete, projekcija i zbirovi ostaju SIROVI (klonov dan); ocena dana, pilovi i poredjenja
+// idu „kao 24 h": visak = (v(03:05) − v(01:55)) − 70 min × brzina (prosek iz 01:15–01:55 i 03:05–03:45), meri se nad ISTOM serijom
+// koju poredjenje cita (binovi / kriva sa racunara / tikovi); popravka od 03:05, preko 02:05–02:55 most (prava izmedju krajeva).
+// Uvezen dan nosi visak sa racunara (H[d].dst) = isti brojevi kao racunar; dan koji telefon sam skuplja meri sam (dstEx).
+function dstHours(d) {
+  const y = +d.slice(0, 4), mo = +d.slice(5, 7), dd = +d.slice(8, 10);
+  if (mo !== 3 && mo !== 10) return 24;
+  const last = new Date(Date.UTC(y, mo, 0)); last.setUTCDate(last.getUTCDate() - last.getUTCDay());   // poslednja nedelja meseca
+  return dd === last.getUTCDate() ? (mo === 3 ? 23 : 25) : 24;
+}
+const isDstDay = d => dstHours(d) !== 24;
+function dstExtra(pts, hrs) {   // pts = [[minut oznake, kumulativ]], hrs 23/25 -> visak (25 h > 0, 23 h < 0) ili null
+  if (hrs !== 23 && hrs !== 25) return null;
+  const P = pts.filter(p => p[0] != null && p[1] != null).sort((a, b) => a[0] - b[0]);
+  const near = (m, lo, hi) => { let best = null; for (const p of P) if (p[0] >= lo && p[0] <= hi && (!best || Math.abs(p[0] - m) < Math.abs(best[0] - m))) best = p; return best; };
+  const a = near(115, 100, 119), b = near(185, 180, 199);
+  if (!a || !b || b[0] <= a[0]) return null;
+  const nominal = b[0] - a[0], span = nominal + (hrs === 25 ? 60 : -60), rates = [];
+  const a0 = near(a[0] - 40, a[0] - 50, a[0] - 30), b0 = near(b[0] + 40, b[0] + 30, b[0] + 50);
+  if (a0 && a0[0] < a[0]) rates.push((a[1] - a0[1]) / (a[0] - a0[0]));
+  if (b0 && b0[0] > b[0]) rates.push((b0[1] - b[1]) / (b0[0] - b[0]));
+  const rate = rates.length ? rates.reduce((s, x) => s + x, 0) / rates.length : span > 0 ? (b[1] - a[1]) / span : null;
+  return rate == null ? null : (b[1] - a[1]) - nominal * rate;
+}
+// kumulativ u minutu m bez viska: m >= 03:05 -> v − ex; 01:55 < m < 03:05 -> most izmedju raw(01:55) i raw(03:05) − ex (at = minut -> sirovo)
+function dstAdj(v, m, ex, at) {
+  if (v == null || !ex || m == null || m <= 115) return v;
+  if (m >= 185) return v - ex;
+  if (at) { const a = at(115), b = at(185); if (a != null && b != null) return a + (b - ex - a) * (m - 115) / 70; }
+  return v - ex * (m - 115) / 70;
+}
+const dstLbl = d => isDstDay(d) ? `${dstHours(d)} h` : '';
+const dstTip = d => isDstDay(d) ? `dan od ${dstHours(d)} h (sat ${dstHours(d) === 25 ? 'vraćen' : 'pomeren'} 02→03): pilovi i poređenja su bez ${dstHours(d) === 25 ? 'ponovljenog' : 'izgubljenog'} sata, brojevi ostaju ceo dan` : '';
 function tableRows() {
   return [['search', 'Organic', 'lead', SEARCH, 'search'], ['google', 'Google', 'child', ['google'], 'google'], ['bing', 'Bing', 'child', ['bing'], 'bing'],
     ['duckduckgo', 'DuckDuckGo', 'child', ['duckduckgo'], 'duckduckgo'], ['yahoo', 'Yahoo', 'child', ['yahoo'], 'yahoo'],
@@ -964,12 +1000,41 @@ function cvK(back, which) {
   const f = pts.reduce((a, b) => a[0] <= b[0] ? a : b), cv = f[0] > 60 ? cvAt(addDays(S.today, -back), f[0], which) : null;
   return cv > 0 ? pick(f) / cv : 1;
 }
-function dayAt(back, m, which) {
+function dayAtRaw(back, m, which) {
   const day = cmpDay(back), v = valAt(day, m, pickOf(which, day));
   if (v != null) return v;
   const c = cvAt(addDays(S.today, -back), m, which);
   return c == null ? null : c * cvK(back, which);
 }
+// visak sata dana `back` za seriju (which 0/1/2 ili grupe `keys`): uvoz sa racunara (H[d].dst: c / h / s / zbir g) ili mera nad istom
+// serijom koju citaju dayAtRaw / grpAtRaw (binovi; bez njih tikovi racunara za jednu grupu, inace kriva/proxy u slot-minutima). Kes po danu, danas po redu.
+const DSTC = { k: '', m: {} };
+function dstEx(back, which, keys) {
+  const d = addDays(S.today, -back), hrs = dstHours(d);
+  if (hrs === 24) return 0;
+  const e = H[d], x = e && e.dst;
+  if (x && x.hours) {
+    if (!keys) return (which === 0 ? x.c : which === 1 ? x.h : x.h != null ? (x.h || 0) - (x.p || 0) : null) || 0;
+    if (keys === SEARCH) return x.h != null ? ((x.h || 0) - (x.p || 0)) : 0;
+    if (pkEq(keys)) return x.p || 0;
+    if (keys.length === SEARCH.length + partKeys().length) return x.h || 0;
+    return keys.reduce((s, k) => s + ((x.g && x.g[k]) || 0), 0);
+  }
+  // kes: danas po redu + broju binova (prvo crtanje u load() ide PRE binova dana -> bez ovoga bi 0 ostalo do sledeceg reda) + KS (kcum skala klasa)
+  const ck = S.today + '|' + (back === 0 && S.last ? S.last.at : 0) + '|' + (S.day ? Object.keys(S.day.s).length : 0) + '|' + KS.s + '|' + KS.p;
+  if (DSTC.k !== ck) { DSTC.k = ck; DSTC.m = {}; }
+  const id = back + '|' + (keys ? keys.join(',') : 'w' + which);
+  if (id in DSTC.m) return DSTC.m[id];
+  const day = cmpDay(back), pick = keys ? (q => q[6] ? kcum(q[6], keys) : null) : pickOf(which, day);
+  let pts = day ? Object.values(day.s).map(q => [q[0], pick(q)]).filter(p => p[1] != null) : [];
+  if (!(pts.some(p => p[0] >= 100 && p[0] <= 119) && pts.some(p => p[0] >= 180 && p[0] <= 199))) {
+    const o = keys && keys.length === 1 && !isClass(keys[0], keys) ? ownDay(d) : null;
+    pts = o && o.g[keys[0]] ? o.g[keys[0]] : [75, 115, 185, 225].map(m => [m, keys ? grpAtRaw(back, m, keys) : dayAtRaw(back, m, which)]);
+  }
+  const v = dstExtra(pts, hrs);
+  return DSTC.m[id] = v == null ? 0 : Math.round(v);
+}
+const dayAt = (back, m, which) => dstAdj(dayAtRaw(back, m, which), m, dstEx(back, which), mm => dayAtRaw(back, mm, which));
 // tacke krive dana za grafik: binovi telefona, a deo dana pre prvog bina (ili ceo dan) iz krive sa racunara
 function cmpPts(back, which) {
   const day = cmpDay(back), pick = pickOf(which, day);
@@ -1011,7 +1076,7 @@ const pkEq = keys => { const pk = partKeys(); return keys.length === pk.length &
 const isClass = (key, keys) => !keys || key === 'h' || key === 's' || key === 'search' || key === 'part' || keys === SEARCH || pkEq(keys) || keys.length === SEARCH.length + partKeys().length;
 // grupa u minutu m dana `back` SAMO iz sopstvenih tacaka (binovi telefona ili tikovi racunara) — bez proxy-ja; klase (organic/partneri/referisane)
 // nemaju sopstvene tikove po ovom putu (racunar ih vodi po klonovoj krivoj), za njih = binovi ili null
-function grpOwnAt(back, m, keys) {
+function grpOwnAtRaw(back, m, keys) {
   const day = cmpDay(back), v = valAt(day, m, x => x[6] ? kcum(x[6], keys) : null);
   if (v != null) return v;
   if (keys === SEARCH || pkEq(keys) || keys.length === SEARCH.length + partKeys().length) return null;
@@ -1019,9 +1084,11 @@ function grpOwnAt(back, m, keys) {
   if (!e || e.x) return null;
   return ownAt(d, m, keys);
 }
+const grpOwnAt = (back, m, keys) => dstAdj(grpOwnAtRaw(back, m, keys), m, dstEx(back, null, keys), mm => grpOwnAtRaw(back, mm, keys));
 // grupa (ili zbir grupa) izvora u minutu m dana `back`: binovi telefona; zatim sopstveni tikovi racunara (uvoz); gde ni njih nema, zbir
 // dana po grupi x oblik krive sa racunara (organic i direktno = oblik krive pretrazivaca S, partneri = oblik P = referisane - organic) — procena
-function grpAt(back, m, keys) {
+const grpAt = (back, m, keys) => dstAdj(grpAtRaw(back, m, keys), m, dstEx(back, null, keys), mm => grpAtRaw(back, mm, keys));   // bez viska sata (dstEx)
+function grpAtRaw(back, m, keys) {
   const day = cmpDay(back), v = valAt(day, m, x => x[6] ? kcum(x[6], keys) : null);
   if (v != null) return v;
   const d = addDays(S.today, -back), e = H[d], cv = CV[d];
@@ -1045,7 +1112,11 @@ const mxRows = () => [['c', 'Posete', 'lead', null, ''], ['h', 'Referisane', 'le
   ['yahoo', 'Yahoo', 'child', ['yahoo'], 'yahoo'], ['part', 'Partneri', 'lead', partKeys(), 'trade'], ['direct', 'Direktno', 'lead', ['direct'], 'direct']];
 const mxThr = k => ['bing', 'duckduckgo', 'yahoo', 'direct'].includes(k) ? CMP_HOUR : CMP_DAY;      // manji izvori su sumoviti
 const mxAt = (keys, back, m) => keys ? grpAt(back, m, keys) : dayAt(back, m, 0);
-const mxEnd = (key, keys, d) => { const e = H[d]; return !e || e.x ? null : !keys ? e.c : key === 'h' ? classEnd(d, 'h') : key === 's' || key === 'search' ? classEnd(d, 's') : key === 'part' ? classEnd(d, 'p') : e.g ? cum(e.g, keys) : null; };
+const mxEndRaw = (key, keys, d) => { const e = H[d]; return !e || e.x ? null : !keys ? e.c : key === 'h' ? classEnd(d, 'h') : key === 's' || key === 'search' ? classEnd(d, 's') : key === 'part' ? classEnd(d, 'p') : e.g ? cum(e.g, keys) : null; };
+const backOf = d => Math.round((Date.parse(S.today + 'T12:00:00Z') - Date.parse(d + 'T12:00:00Z')) / 86400000);
+// kraj dana bez viska sata (dstEx: koja serija = kao mxAt za isti red) — za poredjenje „ceo dan" i tab Dani
+const dstEnd = (key, keys, d) => isDstDay(d) ? dstEx(backOf(d), !keys ? 0 : key === 'h' ? 1 : key === 's' || key === 'search' ? 2 : null, !keys || key === 'h' || key === 's' || key === 'search' ? null : keys) : 0;
+const mxEnd = (key, keys, d) => { const v = mxEndRaw(key, keys, d); return v == null ? v : v - dstEnd(key, keys, d); };
 // projekcija kraja dana: sada x medijana (kraj dana / isto doba dana) iz do 7 poslednjih dana koje telefon ima (binovi ili kriva sa racunara)
 const RC = { k: '', m: {} };      // kes odnosa po redu izvora (isti red i minut = isti rezultat)
 function mxRatio(key, keys, m) {
@@ -1057,7 +1128,7 @@ function mxRatio(key, keys, m) {
     const rs = [];
     for (let b = 1; b <= 14 && rs.length < 7; b++) {
       const d = addDays(S.today, -b), e = H[d];
-      if (!e || e.x || /outage|partial|dst/.test(e.f || '')) continue;
+      if (!e || e.x || /outage|partial|dst/.test(e.f || '') || isDstDay(d)) continue;   // dan sa pomeranjem sata van oblika i po pravilu (dan bez uvoza nema oznaku)
       const end = mxEnd(key, keys, d), a = at(b);
       if (end > 0 && a > 0 && end >= a) rs.push(end / a);
     }
@@ -1107,7 +1178,7 @@ function cOwnAt(back, m) {
 function dirSusNow(L) {
   if (!L || !L.g) return null;
   const ld = lvl('direct', e => e.g ? e.g.direct : null, true), rD = mxRatio('direct', ['direct'], L.tsm);
-  return ld && ld.L && rD ? Math.max(0, (L.g.direct || 0) - ld.L / rD) : null;
+  return ld && ld.L && rD ? Math.max(0, (L.g.direct || 0) - dstEx(0, null, ['direct']) - ld.L / rD) : null;   // direktno danas bez viska sata (dstEx)
 }
 // ⚠ na Direktnom (12.10.2026, Raleov GO 20:34; racunar dirBot isto): sumnjivi DO SADA > 0 I Direktno iznad svog praga (pil bi inace bio pun
 // zelen); visak unutar praga je sum -> obican pil. Do 12.10 telefon je gledao PROJEKCIJU sumnjivih (vd.sus), racunar sumnjive DO SADA -> razlicit ⚠.
@@ -1132,7 +1203,7 @@ function kRem(m, bot) {
     const ks = [];
     for (let b = 1; b <= (bot ? 14 : 120) && ks.length < 7; b++) {
       const d = addDays(S.today, -b), e = H[d];
-      if (!e || e.x || skip.test(e.f || '') || (cd && !cd.has(d))) continue;
+      if (!e || e.x || skip.test(e.f || '') || (cd && !cd.has(d)) || isDstDay(d)) continue;
       const cE = e.c, hE = classEnd(d, 'h'), cM = cOwnAt(b, mm), hM = dayAt(b, mm, 1);
       if (!(cE > cM && hE > hM && cM > 0 && hM > 0)) continue;
       ks.push(((cE - cM) / (hE - hM)) / (cM / hM));
@@ -1192,9 +1263,10 @@ function renderOnDay(L) {
     (rNow != null ? `iz izvora <b class="num">${N(rNow)}</b>${OR ? ` · uobičajeno <b class="num">≈ ${N(OR.e)}</b> ${pill(rNow / OR.e - 1, ON_THR)} <span class="dt">${OR.n} čistih dana</span>` : ` <span class="dt">uobičajeno stiže kad telefon ima 3 čista dana iz izvora (sada ${nd})</span>`}<br><span class="dt">ukupno sa nepovezanima ${N(L.on)}${ON ? ` · uobičajeno ≈ ${N(ON.e)} (bez pila: bazen se koleba ±25 %)` : ''}</span>`
       : `ukupno <b class="num">${N(L.on)}</b>` + (ON ? ` · uobičajeno <b class="num">≈ ${N(ON.e)}</b> ${pill(L.on / ON.e - 1, ON_THR)} <span class="dt">${ON.n} čistih dana</span>` : ''));
 }
+// vraca projekciju KAO 24 H (dan sa pomeranjem sata: posete i referisane do sada bez viska sata); prikaz = + dstEx(0, 0) (renderSada)
 function projC(L, cNow) {
-  const hNow = kcum(L.g, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm);
-  return pH && hNow > 0 ? cNow + (pH - hNow) * (cNow / hNow) * remK(L.tsm, L, cNow) : null;
+  const c24 = cNow - dstEx(0, 0), hNow = kcum(L.g, refKeys()) - dstEx(0, null, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm);
+  return pH && hNow > 0 && c24 > 0 ? c24 + (pH - hNow) * (c24 / hNow) * remK(L.tsm, L, cNow) : null;
 }
 // normalan odnos posete / referisane = medijana C_kraj / H_kraj poslednjih 7 CISTIH dana (racunar: projection.factor_f)
 function mixF() {
@@ -1304,7 +1376,7 @@ function cleanDays() {
   const ok = [];
   for (const d of Object.keys(H).filter(d => d < S.today && !H[d].x && H[d].c != null).sort()) {
     const e = H[d];
-    if (BADF.test(e.f || '')) continue;
+    if (BADF.test(e.f || '') || isDstDay(d)) continue;   // dan sa pomeranjem sata po pravilu (dan bez uvoza nema oznaku dst)
     if (e.src !== 'pc' && e.g && e.g.direct != null) {
       const u = median(ok.slice(-7).map(x => H[x].g ? H[x].g.direct : null));
       if (u != null && e.g.direct - u >= 0.10 * e.c) continue;
@@ -1314,7 +1386,7 @@ function cleanDays() {
   return ok;
 }
 // dani za nivo CISTIH izvora (pretrazivaci, partneri): bot dan je normalan dan, napolju su samo ispad / nepotpun dan / pomeranje sata
-const okDays = () => Object.keys(H).filter(d => d < S.today && !H[d].x && (H[d].c != null || H[d].h != null) && !/outage|partial|dst/.test(H[d].f || '')).sort();
+const okDays = () => Object.keys(H).filter(d => d < S.today && !H[d].x && (H[d].c != null || H[d].h != null) && !/outage|partial|dst/.test(H[d].f || '') && !isDstDay(d)).sort();
 const wdOf = d => new Date(d + 'T12:00:00').getDay();
 const LC = { k: '', m: {} };
 // NIVO („očekivano") = medijana 7 prethodnih dana x faktor dana u nedelji (8 nedelja, 0,85–1,15); sum = 90. percentil greske tog nivoa
@@ -1343,10 +1415,12 @@ const statVal = (key, keys) => key === 'c' ? e => e.c : key === 'h' ? (e, d) => 
   : key === 'part' ? (e, d) => classEnd(d, 'p') : e => e.g ? cum(e.g, keys) : null;
 // red izvora: projekcija, ocekivano (nivo), odstupanje, prag i status — isti racun kao glavna tabela na racunaru
 function srcStat(key, keys, now, m) {
-  const lv = lvl(key, statVal(key, keys), STAT_BOT(key)), r = now > 0 ? mxRatio(key, keys, m) : null, out = { proj: r ? now * r : null, level: lv ? lv.L : null, dev: null, thr: null, early: false };
+  // dan sa pomeranjem sata: projekcija i odstupanje na „do sada" bez viska sata (dstEx), prikazna projekcija sa viskom (klonov dan)
+  const ex = dstEx(0, key === 'c' ? 0 : key === 'h' ? 1 : key === 's' || key === 'search' ? 2 : null, key === 'c' || key === 'h' || key === 's' || key === 'search' ? null : keys), n24 = now - ex;
+  const lv = lvl(key, statVal(key, keys), STAT_BOT(key)), r = n24 > 0 ? mxRatio(key, keys, m) : null, out = { proj: r ? n24 * r + ex : null, level: lv ? lv.L : null, dev: null, thr: null, early: false, dst: ex };
   if (!r || !lv || !lv.L) return out;
   const share = Math.min(1, 1 / r), unc = 0.075 * (1 - share) * Math.max(1, Math.min(3, Math.sqrt(6000 / Math.max(lv.L, 1))));
-  out.dev = out.proj / lv.L - 1; out.thr = Math.max(0.06, Math.min(0.35, Math.hypot(lv.noise, unc))); out.early = share < 0.18;
+  out.dev = (n24 * r) / lv.L - 1; out.thr = Math.max(0.06, Math.min(0.35, Math.hypot(lv.noise, unc))); out.early = share < 0.18;
   return out;
 }
 const statPill = (st, bot) => st.dev == null ? '' : bot ? `<span class="dl bot"><i>⚠</i>${st.dev > 0 ? '+' : '−'}${Math.abs(st.dev * 100).toLocaleString('de-DE', { maximumFractionDigits: Math.abs(st.dev) < .1 ? 1 : 0 })}%</span>` : pill(st.dev, st.early ? 9 : st.thr);
@@ -1354,10 +1428,10 @@ const statPill = (st, bot) => st.dev == null ? '' : bot ? `<span class="dl bot">
 // posete/referisane, cisti dani); cista projekcija = projekcija referisanih x F (c_mix); sumnjivi (projekcija) = projekcija poseta − c_mix.
 // Stari racun (nivo iz serije poseta bez bot dana) je od 21.9 stajao na danima <= 20.9 -> svaki dan „Dobar/Odlican". Bez 3 cista dana ili
 // bez nivoa referisanih = stari racun (rezerva).
-function verdict(L, proj) {
+function verdict(L, proj) {   // proj = projekcija KAO 24 H (projC); dan sa pomeranjem sata: referisane do sada bez viska (dstEx)
   if (!proj) return null;
   const F = mixF(), lh = F ? lvl('h', (e, d) => classEnd(d, 'h'), false) : null;
-  const hNow = kcum(L.g, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm), mix = lh && lh.L && pH ? pH * F : null;
+  const hNow = kcum(L.g, refKeys()) - dstEx(0, null, refKeys()), pH = mxProj('h', refKeys(), hNow, L.tsm), mix = lh && lh.L && pH ? pH * F : null;
   const lt = mix ? { L: lh.L * F, noise: lh.noise } : lvl('c', e => e.c, true);
   if (!lt || !lt.L) return null;
   let sus; const dn = mix ? dirSusNow(L) : null, susNow = dn != null && dn > 0;   // sumnjivi direktni DO SADA (racunar sus_u > 0)
@@ -1375,12 +1449,13 @@ function verdict(L, proj) {
 // pokretaci ocene dana: isti izvori i redosled kao cipovi uz ocenu na racunaru
 const DRV = [['google', 'Google'], ['search', 'Organic'], ['part', 'Partneri'], ['direct', 'Direktno'], ['bing', 'Bing'], ['duckduckgo', 'DDG']];
 function renderSada({ L, on, cNow, cEst }) {
-  const eY = H[prevDate(S.today)], proj = projC(L, cNow);
+  // dan sa pomeranjem sata (25.10.2026): proj24 = projekcija kao 24 h (ocena, pilovi), proj = + visak = klonov ceo dan (glavni broj, kao racunar)
+  const eY = H[prevDate(S.today)], exC = dstEx(0, 0), proj24 = projC(L, cNow), proj = proj24 != null ? proj24 + exC : null, cNow24 = cNow - exC, dH = dstHours(S.today);
   const rX = refOn(L);   // 10.10.2026 15:43 (Raleov GO): veliki broj = IZ IZVORA; ukupno sitno ispod bez pila
   $('#oV').textContent = N(rX != null ? rX : on);
   // glavni broj = PROJEKCIJA dana (kao na racunaru), do sada sitno; dok projekcije nema (pre 03:00 / bez istorije) glavni broj je do sada
   $('#cV').textContent = proj ? N(proj) : (cEst ? '≈ ' : '') + N(cNow);
-  const vd = verdict(L, proj), ve = $('#cVd'), pb = $('#cPb');
+  const vd = verdict(L, proj24), ve = $('#cVd'), pb = $('#cPb');
   $('#cCard').className = 'card hero' + (vd && vd.cls ? ' ' + vd.cls : '');
   ve.hidden = !vd; ve.className = 'vd' + (vd && vd.cls ? ' ' + vd.cls : '');
   const defs = tableRows(), dr = $('#cDrv');
@@ -1390,13 +1465,18 @@ function renderSada({ L, on, cNow, cEst }) {
   }).join('') : '';
   dr.hidden = !chips; dr.innerHTML = chips ? '<span class="pl dt">izvori: projekcija prema očekivanom · dodir = detalji</span>' + chips : '';
   const VDI = { boost: '▲', up: '▲', normal: '≈', down: '▼', drop: '▼', early: '◔' };   // krug sa ikonom kao na racunaru (#vdIc)
-  if (vd) ve.innerHTML = `<i class="vdi" aria-hidden="true">${VDI[vd.status] || '●'}</i>${vd.title}${vd.early ? '' : ` <b class="vdd">${vd.dev > 0 ? '+' : '−'}${P(Math.abs(vd.dev) * 100, Math.abs(vd.dev) >= .0995 ? 0 : 1)}</b>`}<span>${vd.sus > 0 ? `projekcija ${N(vd.clean)} bez ≈ ${N(vd.sus)} sumnjivih direktnih` : N(vd.clean) !== N(proj) ? `projekcija ${N(proj)} · čisto ${N(vd.clean)}` : `projekcija ${N(vd.clean)}`} · očekivano ${N(vd.level)}</span>`;   // 11.10.2026: tri oblika kao racunar sources.compute — cist dan; sa sumnjivima „bez ≈“; sumnjivih ima a k-projekcija <= c_mix -> hero nosi k-projekciju, ocena c_mix, oba broja u tekstu
+  // tekst ocene: tri oblika kao racunar sources.compute (11.10.2026) — cist dan; sa sumnjivima „bez ≈“; sumnjivih ima a k-projekcija <= c_mix -> hero nosi
+  // k-projekciju, ocena c_mix, oba broja u tekstu; dan sa pomeranjem sata (racunar sources._pj): „projekcija N (25 h) · kao 24 h N−visak"
+  const pj = (p, p24) => exC ? `projekcija ${N(p)} (${dH} h) · kao 24 h ${N(p24)}` : `projekcija ${N(p)}`;
+  if (vd) ve.innerHTML = `<i class="vdi" aria-hidden="true">${VDI[vd.status] || '●'}</i>${vd.title}${vd.early ? '' : ` <b class="vdd">${vd.dev > 0 ? '+' : '−'}${P(Math.abs(vd.dev) * 100, Math.abs(vd.dev) >= .0995 ? 0 : 1)}</b>`}<span>${vd.sus > 0 ? `${pj(vd.clean + exC, vd.clean)} bez ≈ ${N(vd.sus)} sumnjivih direktnih` : N(vd.clean) !== N(proj24) ? `${pj(proj, proj24)} · čisto ${N(vd.clean + exC)}` : pj(proj, vd.clean)} · očekivano ${N(vd.level)}</span>`;
   pb.hidden = !proj; if (proj) pb.firstElementChild.style.width = Math.min(100, 100 * cNow / proj).toFixed(1) + '%';
   $('#cMeta').textContent = 'red ' + hms(L.at);
   $('#cProj').innerHTML = proj ? `očekivano poseta danas · do sada <b class="num">${cEst ? '≈ ' : ''}${N(cNow)}</b>` : `posete do sada · <span class="dt">${projWhy(L.tsm)}</span>`;
-  // isti skup kao na racunaru: vs ocekivano (ocena, bez sumnjivih) · juce · pre 7 d (bilo juce / -7 / -14 sirovo sa botom = zeleno +55 % ispod ocene)
+  // isti skup kao na racunaru: vs ocekivano (ocena, bez sumnjivih) · juce · pre 7 d (bilo juce / -7 / -14 sirovo sa botom = zeleno +55 % ispod ocene);
+  // dan sa pomeranjem sata: danasnja strana bez viska (cNow24), dan poredjenja bez viska (dayAt) + oznaka „25 h"
   $('#cDl').innerHTML = (vd && !vd.early && vd.dev != null ? `<span class="pl">vs očekivano ${pill(vd.dev, vd.thr)}</span>` : '') +
-    [1, 7].map(back => { const y = dayAt(back, L.tsm, 0), bf = ((H[addDays(S.today, -back)] || {}).f || '').includes('bot'); return y ? `<span class="pl">${back === 1 ? 'juče' : 'pre 7 d'} ${pill(cNow / y - 1, CMP_DAY)}${bf ? ' <span class="fl">⚠ bot</span>' : ''}</span>` : ''; }).join('');   // 10.10.2026: ⚠ bot kad je dan poredjenja nosio bota (kao racunar; boja pila ostaje)
+    [1, 7].map(back => { const d = addDays(S.today, -back), y = dayAt(back, L.tsm, 0), bf = ((H[d] || {}).f || '').includes('bot'), fl = [bf ? '⚠ bot' : '', dstLbl(d)].filter(Boolean).join(' · '); return y ? `<span class="pl">${back === 1 ? 'juče' : 'pre 7 d'} ${pill(cNow24 / y - 1, CMP_DAY)}${fl ? ` <span class="fl">${fl}</span>` : ''}</span>` : ''; }).join('') +   // 10.10.2026: ⚠ bot kad je dan poredjenja nosio bota (kao racunar; boja pila ostaje)
+    (exC ? `<span class="pl dt" title="${dstTip(S.today)}">⏰ dan od ${dH} h · ${dH === 25 ? 'ponovljeni' : 'izgubljeni'} sat 02–03 ≈ ${exC >= 0 ? '+' : '−'}${N(Math.abs(exC))} · ocena i pilovi bez njega</span>` : '');
   const nb = L.u - (L.g.bots || 0);
   $('#cSub').innerHTML = [eY && !eY.x && eY.c ? `juče ukupno <b class="num">${N(eY.c)}</b>` : '', L.nw != null && nb > 0 ? `novi <b class="num">${P(100 * L.nw / nb, 0)}</b>` : '',
     L.pv != null && nb > 0 ? `strane <b class="num">${K(L.pv)}</b> · <b class="num">${(L.pv / nb).toFixed(1).replace('.', ',')}</b> po poseti` : ''].filter(Boolean).join(' · ');   // pregledi strana (format 2)
@@ -1464,13 +1544,17 @@ function renderDan({ L, cNow, cEst }) {
   $('#mxNow').innerHTML = `do ${at}<br><span class="dt">kraj dana</span>`;
   let miss = false;
   $('#mxBody').innerHTML = mxRows().map(([key, label, cls, keys, c]) => {
-    const now = keys ? kcum(L.g, keys) : cNow, proj = key === 'c' ? projC(L, cNow) : mxProj(key, keys, now, L.tsm), base = end ? proj : now;
+    // dan sa pomeranjem sata: danasnja strana pila bez viska (n24 / proj24), prikazani brojevi sa viskom (klonov dan); dani poredjenja bez viska (mxAt / mxEnd)
+    const now = keys ? kcum(L.g, keys) : cNow, ex = key === 'c' ? dstEx(0, 0) : dstEx(0, key === 'h' ? 1 : key === 's' ? 2 : null, key === 'h' || key === 's' ? null : keys), n24 = now - ex;
+    const proj24 = key === 'c' ? projC(L, cNow) : mxProj(key, keys, n24, L.tsm), proj = proj24 != null ? proj24 + ex : null, base = end ? proj24 : n24;
     return `<tr class="${cls} tap" data-k="${key}"><td>${c ? sw(c) : ''}${label}</td><td class="num">${(key === 'c' && cEst ? '≈ ' : '') + N(now)}<br><span class="dt">${proj ? N(proj) : '—'}</span></td>` +
       CMP.map(([back]) => { const v = end ? mxEnd(key, keys, addDays(S.today, -back)) : mxAt(keys, back, L.tsm); if (v == null) miss = true; return `<td>${pill(v && base != null ? base / v - 1 : null, mxThr(key))}</td>`; }).join('') + '</tr>';
   }).join('');
   const botDays = CMP.filter(([back]) => ((H[addDays(S.today, -back)] || {}).f || '').includes('bot')).map(x => x[1]);
+  const dstDays = [isDstDay(S.today) ? `danas (${dstHours(S.today)} h)` : ''].concat(CMP.filter(([back]) => isDstDay(addDays(S.today, -back))).map(([back, l]) => `${l} (${dstHours(addDays(S.today, -back))} h)`)).filter(Boolean);
   $('#kSub').innerHTML = `Ispod broja do sada stoji projekcija kraja dana (sitno). Pil = danas prema tom danu (${end ? 'projekcija prema celom danu' : 'isto doba dana'}): zeleno = danas više, crveno = manje; pun pil = preko 7 % (Bing, DDG, Yahoo i Direktno 15 %). Referisane = Organic + Partneri. Dodir na red = detalji.` +
     (botDays.length ? `<br><span class="fl">⚠ bot</span>: ${botDays.join(', ')} — Posete i Direktno su tih dana naduvani, čisto poređenje daju ostali redovi.` : '') +
+    (dstDays.length ? `<br><span class="fl">⏰ pomeranje sata</span>: ${dstDays.join(', ')} — pilovi su bez ponovljenog (izgubljenog) sata 02–03, brojevi ostaju ceo dan; tabela po satu je sirova.` : '') +
     (miss ? '<br>— = telefon nema krivu tog dana: izvor čuva redove tek od 2.10, starije dane uvozi računar (Podešavanje).' : '');
   // tok dana (kumulativno): danas + juce + pre 7 + pre 14 dana
   document.querySelectorAll('#cmpM button').forEach(b => b.classList.toggle('on', b.dataset.m === (S.cmp === 'pv' ? 'c' : S.cmp)));   // 'strane' postoji samo u tabu Dani
@@ -1514,7 +1598,7 @@ function renderDan({ L, cNow, cEst }) {
   // partneri: posete do sada + pil prema istom dobu pre 7 dana (isti broj kao red Partneri gore); po partneru danas / 30 min / udeo novih
   const pk = partKeys(), pNow = kcum(L.g, pk), pW = grpAt(7, L.tsm, pk);
   $('#tV').textContent = N(pNow);
-  $('#tDl').innerHTML = pill(pW ? pNow / pW - 1 : null, CMP_DAY);
+  $('#tDl').innerHTML = pill(pW ? (pNow - dstEx(0, null, pk)) / pW - 1 : null, CMP_DAY);   // danasnja strana bez viska sata
   $('#tSub').innerHTML = `do ${at} · 30 min <b class="num">${N(arrivals(pk, 30))}</b> · pil = prema istom dobu pre 7 dana`;
   const ra = refArrivals();
   const partners = D ? D.refs.filter(x => pk.includes(x[1])) : [];
@@ -1553,13 +1637,20 @@ function renderDani({ L, cNow, cEst }) {
   const name2 = eng ? 'organic' : ['referisane', 'organic', 'Google', '', 'posete'][w], keys2 = eng ? SEARCH : [refKeys(), SEARCH, ['google'], null, null][w], now2 = w === 4 ? cNow : kcum(L.g, keys2);
   const mv2 = d => eng ? endD(d, 2) : w === 4 ? endD(d, 0) : w < 2 ? endD(d, w + 1) : (H[d] && !H[d].x && H[d].g ? H[d].g.google : null);
   $('#dTh2').textContent = name2;
+  // visak sata dana d za meru (kolona 1) i drugi par (kolona 2) — dan sa pomeranjem sata: pil obema stranama bez viska, prikazan broj ceo dan (dstEnd; pv nema meru)
+  const exM = d => !isDstDay(d) ? 0 : eng ? dstEnd(eng, [eng], d) : w === 4 ? 0 : dstEnd(['c', 'h', 's'][w], [null, refKeys(), SEARCH][w], d);
+  const exM2 = d => !isDstDay(d) ? 0 : eng ? dstEnd('s', SEARCH, d) : w === 4 ? dstEnd('c', null, d) : w < 2 ? dstEnd(['h', 's'][w], [refKeys(), SEARCH][w], d) : dstEnd('google', ['google'], d);
   const row = (d, e, today) => {
     // danas: do sada prema ISTOM DOBU pre 7 dana (isti broj kao tab Dan); prosli dani: ceo dan prema celom danu nedelju ranije
-    const wk = H[addDays(d, -7)], v = today ? nowV : mv(d), g = today ? now2 : mv2(d);
-    const wv = today ? (w === 4 ? null : mxAt(eng ? [eng] : [null, refKeys(), SEARCH][w], 7, L.tsm)) : wk && !wk.x ? mv(addDays(d, -7)) : null, wg = today ? (w === 4 ? mxAt(null, 7, L.tsm) : grpAt(7, L.tsm, keys2)) : wk && !wk.x ? mv2(addDays(d, -7)) : null;
+    const wk = H[addDays(d, -7)], v = today ? nowV : mv(d), g = today ? now2 : mv2(d), wd = addDays(d, -7);
+    const wv = today ? (w === 4 ? null : mxAt(eng ? [eng] : [null, refKeys(), SEARCH][w], 7, L.tsm)) : wk && !wk.x ? mv(wd) : null, wg = today ? (w === 4 ? mxAt(null, 7, L.tsm) : grpAt(7, L.tsm, keys2)) : wk && !wk.x ? mv2(wd) : null;
+    // pil bez viska sata: danas = do sada − visak danas (mxAt/grpAt su vec bez viska), prosli dan = ceo dan − visak tog dana / dana poredjenja
+    const va = v != null ? v - (today ? (w === 4 ? 0 : dstEx(0, eng ? null : [0, 1, 2][w], eng ? [eng] : null)) : exM(d)) : null, wva = wv != null && !today ? wv - exM(wd) : wv;
+    const ga = g != null ? g - (today ? (w === 4 ? dstEx(0, 0) : dstEx(0, eng ? 2 : w < 2 ? w + 1 : null, eng ? null : w < 2 ? null : ['google'])) : exM2(d)) : null, wga = wg != null && !today ? wg - exM2(wd) : wg;
     // 10.10.2026 (Raleov GO 16:07; racunar tabela Po danu isto): ⚠ uz dan sa botom; ⚠ uz pil POSETA (1. par kad je mera posete, 2. par kad je mera strane) kad je dan poredjenja nosio bota -> pad prividan
     const botD = ((e && e.f) || '').includes('bot'), botW = !!(wk && (wk.f || '').includes('bot')), f1 = botW && w === 0 && !eng, f2 = botW && w === 4, FL = ' <span class="fl">⚠</span>';
-    return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}${botD ? FL : ''}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${pill(wv && v != null ? v / wv - 1 : null, CMP_DAY, f1)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td>${pill(wg && g != null ? g / wg - 1 : null, CMP_DAY, f2)}</td></tr>`;
+    const dl = isDstDay(d) ? ` <span class="fl" title="${dstTip(d)}">${dstLbl(d)}</span>` : '';
+    return `<tr class="tap${today ? ' lead' : ''}" data-d="${d}"><td>${today ? 'danas' : dstr(d)}${botD ? FL : ''}${dl}</td><td class="num">${w === 0 && (e.e || today && cEst) ? '≈ ' : ''}${N(v)}</td><td>${pill(wva && va != null ? va / wva - 1 : null, CMP_DAY, f1)}</td><td class="num mt">${g != null ? N(g) : '—'}</td><td>${pill(wga && ga != null ? ga / wga - 1 : null, CMP_DAY, f2)}</td></tr>`;
   };
   // PERIODI (3.10.2026, Rale): prosek po danu poslednjih nD zatvorenih dana (do juce) + pil prema prethodnih nD — isti racun kao na racunaru
   // (prozori = dostupni dani; ≈ = prozor nepotpun, — = manje od pola prozora); izabrana mera + drugi par
@@ -1589,7 +1680,7 @@ function renderDani({ L, cNow, cEst }) {
   $('#wkSub').innerHTML = l84.length >= 14 && wkHi ? `medijana poseta, 12 nedelja · najjači <b>${DOW[wkHi.wd]}</b> <b class="num">${N(wkHi.v)}</b> · najslabiji <b>${DOW[wkLo.wd]}</b> <b class="num">${N(wkLo.v)}</b> · obris = danas` : 'profil nedelje stiže kad se skupi 14 dana';
   const nPc = Object.values(H).filter(e => e.src === 'pc').length, pend = (() => { let c = 0; for (let i = 2; i <= BACK_DAYS; i++) { const e = H[addDays(S.today, -i)]; if (!e || e.p) c++; } return c; })();
   const nHr = Object.values(H).filter(e => e.hr && e.c == null).length;
-  $('#daysNote').textContent = 'Redovi 7–365 d = prosek po danu u periodu (do juče) i pil prema prethodnom periodu iste dužine (≈ = prethodni period nepotpun, — = premalo podataka). Pil dana = prema istom danu nedelju ranije („danas" = do sada prema istom dobu). ⚠ uz dan = bot dan (skrejper: Posete naduvane); ⚠ u pilu poseta = dan poređenja je nosio bota, pad je prividan. Dodir na dan = detalji. ' + (w === 4 ? 'Strane = pregledi strana iz izvora (od 4.10). ' : '') + (nPc ? '' : (nHr ? 'Referisane i organic starijih dana stižu iz satne krive izvora; posete, uređaji i botovi uvozom sa računara (Podešavanje). ' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ')) + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
+  $('#daysNote').textContent = 'Redovi 7–365 d = prosek po danu u periodu (do juče) i pil prema prethodnom periodu iste dužine (≈ = prethodni period nepotpun, — = premalo podataka). Pil dana = prema istom danu nedelju ranije („danas" = do sada prema istom dobu). ⚠ uz dan = bot dan (skrejper: Posete naduvane); ⚠ u pilu poseta = dan poređenja je nosio bota, pad je prividan. 25 h / 23 h uz dan = pomeranje sata: broj je ceo dan, pil bez ponovljenog (izgubljenog) sata. Dodir na dan = detalji. ' + (w === 4 ? 'Strane = pregledi strana iz izvora (od 4.10). ' : '') + (nPc ? '' : (nHr ? 'Referisane i organic starijih dana stižu iz satne krive izvora; posete, uređaji i botovi uvozom sa računara (Podešavanje). ' : 'Dani pre nego što je izvor počeo da čuva redove stižu uvozom sa računara (Podešavanje). ')) + (pend ? `Proveravam još ${pend} starijih dana u izvoru.` : '');
 }
 
 // ---------------------------------------------------------------- listovi (izvor, dan)
@@ -1599,11 +1690,12 @@ function openSource(key) {
   const def = tableRows().find(r => r[0] === key); if (!def || !S.last) return;
   const [, label, , keys, c] = def, L = S.hold ? Object.assign({}, S.last, { tsm: 1439 }) : S.last, D = detail(S.last), color = `var(--s-${c})`;
   const pts = day => day ? Object.values(day.s).filter(x => x[6]).map(x => [x[0], cum(x[6], keys)]).sort((a, b) => a[0] - b[0]) : [];
-  const v = kcum(L.g, keys), hd = histDays(14).filter(x => x[1].g), pr = mxProj(key, keys, v, L.tsm), thr = ['search', 'google', 'part'].includes(key) ? CMP_DAY : CMP_HOUR;
+  // dan sa pomeranjem sata: v24 / pr24 = danasnja strana bez viska (pilovi), v / pr prikaz sa viskom; grpAt / mxEnd dana poredjenja vec bez viska
+  const v = kcum(L.g, keys), exS = dstEx(0, key === 'search' ? 2 : null, key === 'search' ? null : keys), v24 = v - exS, hd = histDays(14).filter(x => x[1].g), pr24 = mxProj(key, keys, v24, L.tsm), pr = pr24 != null ? pr24 + exS : null, thr = ['search', 'google', 'part'].includes(key) ? CMP_DAY : CMP_HOUR;
   const st = key === 'bots' ? null : srcStat(key, keys, v, L.tsm);
   const cmpTr = CMP.map(([back, lbl, k]) => {
     const d = addDays(S.today, -back), e = H[d] && !H[d].x ? H[d] : null, a = grpAt(back, L.tsm, keys), en = mxEnd(key, keys, d);
-    return `<tr><td>${ck(k)}${lbl}<br><span class="dt">${dstr(d)}</span></td><td class="num">${a != null ? `<span class="cv">${N(a)}</span>` + pill(a ? v / a - 1 : null, thr) : '<span class="dl none">—</span>'}</td><td class="num">${en != null ? `<span class="cv">${N(en)}</span>` + pill(en && pr ? pr / en - 1 : null, thr) : '<span class="dl none">—</span>'}</td></tr>`;
+    return `<tr><td>${ck(k)}${lbl}<br><span class="dt">${dstr(d)}${isDstDay(d) ? ` · <span class="fl">${dstLbl(d)}</span>` : ''}</span></td><td class="num">${a != null ? `<span class="cv">${N(a)}</span>` + pill(a ? v24 / a - 1 : null, thr) : '<span class="dl none">—</span>'}</td><td class="num">${en != null ? `<span class="cv">${N(en)}</span>` + pill(en && pr24 ? pr24 / en - 1 : null, thr) : '<span class="dl none">—</span>'}</td></tr>`;
   }).join('');
   const a = D ? keys.reduce((s, k) => { const x = D.q[k]; if (x) for (let i = 0; i < 6; i++) s[i] += x[i]; return s; }, [0, 0, 0, 0, 0, 0]) : null;
   const ra = refArrivals(), list = D ? D.refs.filter(x => keys.includes(x[1])) : [];
