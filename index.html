@@ -1367,8 +1367,8 @@ function render() {
   $('#foot').textContent = `osvežava se svakog minuta dok je strana otvorena · poslednji red ${hms(L.at)}`;
 }
 
-// OCENA DANA — ista racunica kao na racunaru (sources._level_at + compute): nivo = medijana 7 prethodnih CISTIH dana x faktor dana u
-// nedelji (8 nedelja, 0,85–1,15); sumnjivi direktni = projekcija direktnih − nivo direktnih; ocena = (projekcija − sumnjivi) / nivo − 1
+// OCENA DANA — ista racunica kao na racunaru (sources._level_at + compute): nivo = trend 14 prethodnih CISTIH dana x faktor dana u
+// nedelji (12 istih dana, 0,85–1,15; lvl ispod); sumnjivi direktni = projekcija direktnih − nivo direktnih; ocena = (projekcija − sumnjivi) / nivo − 1
 const BADF = /bot|outage|partial|dst/;   // + dst (pomeranje sata) kao na racunaru (audit 4.10.2026)
 // cisti dani za nivo: bez oznake bot/ispad/nepotpun (oznake stizu uvozom sa racunara); dan koji telefon sam skuplja oznaku nema ->
 // bot dan = direktni iznad uobicajenog (medijana 7 prethodnih cistih dana) za >= 10 % poseta, isto pravilo kao na racunaru
@@ -1389,8 +1389,11 @@ function cleanDays() {
 const okDays = () => Object.keys(H).filter(d => d < S.today && !H[d].x && (H[d].c != null || H[d].h != null) && !/outage|partial|dst/.test(H[d].f || '') && !isDstDay(d)).sort();
 const wdOf = d => new Date(d + 'T12:00:00').getDay();
 const LC = { k: '', m: {} };
-// NIVO („očekivano") = medijana 7 prethodnih dana x faktor dana u nedelji (8 nedelja, 0,85–1,15); sum = 90. percentil greske tog nivoa
-// u poslednjih 60 dana (ispod 14 merenja 10 %). botOut = bot dani van norme (samo Posete i Direktno). valOf(e, datum) -> vrednost dana
+// NIVO („očekivano", 7.11.2026, racunar sources._level_at) = Theil-Sen trend 14 prethodnih dana podeljenih faktorom dana u nedelji x faktor
+// ciljnog dana; faktor = medijana do 12 istih dana, svaki prema medijani 7 dana OKO sebe (bez rasta), 0,85–1,15. Serija kraca od 18 dana =
+// stari racun (medijana 7 x faktor 8 nedelja prema 7 dana pre). sum = 90. percentil greske tog nivoa u poslednjih 60 dana (ispod 14 merenja
+// 10 %). botOut = bot dani van norme (samo Posete i Direktno). valOf(e, datum) -> vrednost dana
+const LV_W = 14, LV_WDW = 12, LV_K = 3;
 function lvl(id, valOf, botOut) {
   const ck = S.today + '|' + (S.last ? S.last.at : 0) + '|' + Object.keys(H).length;
   if (LC.k !== ck) { LC.k = ck; LC.m = {}; }
@@ -1398,21 +1401,39 @@ function lvl(id, valOf, botOut) {
   const ds = (botOut ? cleanDays() : okDays()).filter(d => valOf(H[d], d) > 0), n = ds.length, v = d => valOf(H[d], d);
   if (n < 4) return LC.m[id] = null;
   const med7 = i => median(ds.slice(Math.max(0, i - 7), i).map(v));
-  const at = (i, wd) => {
+  const wdAt = i => i < n ? wdOf(ds[i]) : wdOf(S.today);
+  const atOld = (i, wd) => {
     if (i < 4) return null;
     const fs = [];
     for (let j = i - 1; j >= 7 && fs.length < 8; j--) if (wdOf(ds[j]) === wd) { const b = med7(j); if (b) fs.push(v(ds[j]) / b); }
     return med7(i) * (fs.length >= 3 ? Math.min(1.15, Math.max(0.85, median(fs))) : 1);
   };
+  const fc = {};
+  const wf = i => {   // faktor dana u nedelji bez rasta: dan / medijana 7 dana oko njega (svi pre ciljnog dana), do 12 istih dana
+    if (i in fc) return fc[i];
+    const wd = wdAt(i), fs = [];
+    for (let j = i - 1 - LV_K; j >= LV_K && fs.length < LV_WDW; j--) if (wdOf(ds[j]) === wd) { const b = median(ds.slice(j - LV_K, j + LV_K + 1).map(v)); if (b) fs.push(v(ds[j]) / b); }
+    return fc[i] = fs.length >= 3 ? Math.min(1.15, Math.max(0.85, median(fs))) : 1;
+  };
+  const at = i => {
+    if (i < LV_W + 4) return atOld(i, wdAt(i));
+    const y = []; for (let j = i - LV_W; j < i; j++) y.push(v(ds[j]) / wf(j));
+    const sl = []; for (let a = 0; a < LV_W; a++) for (let b = a + 1; b < LV_W; b++) sl.push((y[b] - y[a]) / (b - a));
+    const s = median(sl); let base = median(y.map((x, j) => x + s * (LV_W - j)));
+    if (!(base > 0)) base = median(y.slice(-7));
+    return base * wf(i);
+  };
   const errs = [];
-  for (let i = Math.max(8, n - 60); i < n; i++) { const l = at(i, wdOf(ds[i])); if (l) errs.push(Math.abs(v(ds[i]) / l - 1)); }
+  for (let i = Math.max(8, n - 60); i < n; i++) { const l = at(i); if (l) errs.push(Math.abs(v(ds[i]) / l - 1)); }
   errs.sort((a, b) => a - b);
   const q = (errs.length - 1) * 0.9, lo = Math.floor(q), hi = Math.min(lo + 1, errs.length - 1);
-  return LC.m[id] = { L: at(n, wdOf(S.today)), noise: errs.length >= 14 ? errs[lo] + (errs[hi] - errs[lo]) * (q - lo) : 0.10 };
+  return LC.m[id] = { L: at(n), noise: errs.length >= 14 ? errs[lo] + (errs[hi] - errs[lo]) * (q - lo) : 0.10 };
 }
 const STAT_BOT = k => k === 'c' || k === 'direct';
-const statVal = (key, keys) => key === 'c' ? e => e.c : key === 'h' ? (e, d) => classEnd(d, 'h') : key === 's' || key === 'search' ? (e, d) => classEnd(d, 's')
-  : key === 'part' ? (e, d) => classEnd(d, 'p') : e => e.g ? cum(e.g, keys) : null;
+// Organic / Partneri: dan sa PROCENJENIM krajem klase (e.se = pre 23.7.2026, nema klonove P krive) van serije nivoa — racunar ih nema
+// (sources.series = histmatrix ptotals); 7.11.2026: sa faktorom iz 12 nedelja tih 44 dana su menjali sum (prag) Organic 3,9 -> 4,1 %
+const statVal = (key, keys) => key === 'c' ? e => e.c : key === 'h' ? (e, d) => classEnd(d, 'h') : key === 's' || key === 'search' ? (e, d) => e.se ? null : classEnd(d, 's')
+  : key === 'part' ? (e, d) => e.se ? null : classEnd(d, 'p') : e => e.g ? cum(e.g, keys) : null;
 // red izvora: projekcija, ocekivano (nivo), odstupanje, prag i status — isti racun kao glavna tabela na racunaru
 function srcStat(key, keys, now, m) {
   // dan sa pomeranjem sata: projekcija i odstupanje na „do sada" bez viska sata (dstEx), prikazna projekcija sa viskom (klonov dan)
@@ -1701,7 +1722,7 @@ function openSource(key) {
   const ra = refArrivals(), list = D ? D.refs.filter(x => keys.includes(x[1])) : [];
   openSheet(label, `<div class="row"><div class="mid num">${N(v)}</div><span class="dt">do ${hms(L.at).slice(0, 5)}</span></div>
     <div class="proj">${pr ? `projekcija dana <b class="num">${N(pr)}</b>` : `<span class="dt">${projWhy(L.tsm)}</span>`}</div>
-    ${st && st.level ? `<div class="sub">očekivano <b class="num">${N(st.level)}</b> ${statPill(st, key === 'direct' && dirBot(L, st))} <span class="dt">medijana 7 dana × dan u nedelji</span></div>` : ''}
+    ${st && st.level ? `<div class="sub">očekivano <b class="num">${N(st.level)}</b> ${statPill(st, key === 'direct' && dirBot(L, st))} <span class="dt">trend 14 dana × dan u nedelji</span></div>` : ''}
     <div class="sub">5 min <b class="num">${N(arrivals(keys, 5))}</b> · 30 min <b class="num">${N(arrivals(keys, 30))}</b></div>
     ${L.pg && key !== 'bots' ? `<div class="sub">strane danas <b class="num">${pvF(L) > 1 ? '≈ ' : ''}${K(cum(L.pg, keys) * pvF(L))}</b>${cum(L.g, keys) ? ` · <b class="num">${(cum(L.pg, keys) * pvF(L) / cum(L.g, keys)).toFixed(1).replace('.', ',')}</b> po poseti` : ''}${L.og ? ` · online <b class="num">${N(cum(L.og, keys))}</b>` : ''}</div>` : ''}
     <h3>Prema prethodnim danima</h3>
@@ -1735,14 +1756,14 @@ function openDay(d) {
 // ---------------------------------------------------------------- ⓘ po kartici (audit 4.10.2026: racunar ima objasnjenja u title atributima, telefon nema hover)
 const INFO = {
   'Puls dana': `<p><b>Veliki broj</b> = očekivano poseta do kraja dana: do sada + ostatak referisanih (projekcija iz oblika poslednjih 7 dana) × današnji odnos poseta/referisane × k (koliko je taj odnos u ostatku dana obično niži — direktni stižu ravno preko dana, referisani uveče).</p>
-<p><b>Ocena dana</b> poredi projekciju BEZ sumnjivih direktnih (= projekcija referisanih × normalan odnos poseta/referisane iz čistih dana) sa očekivanim (očekivane referisane: medijana 7 dana × dan u nedelji, × isti odnos). Sumnjivi direktni = direktno iznad uobičajenog za ovo doba dana (od 20.9 skrejper bez referera). Dobar / Slabiji dan = razlika preko praga (šum nivoa + nesigurnost projekcije), Odličan / Loš = preko 1,6 praga; boja kartice i kruga prati ocenu (zeleno / plavo = običan / crveno).</p>
+<p><b>Ocena dana</b> poredi projekciju BEZ sumnjivih direktnih (= projekcija referisanih × normalan odnos poseta/referisane iz čistih dana) sa očekivanim (očekivane referisane: trend 14 dana × dan u nedelji, × isti odnos). Sumnjivi direktni = direktno iznad uobičajenog za ovo doba dana (od 20.9 skrejper bez referera). Dobar / Slabiji dan = razlika preko praga (šum nivoa + nesigurnost projekcije), Odličan / Loš = preko 1,6 praga; boja kartice i kruga prati ocenu (zeleno / plavo = običan / crveno).</p>
 <p><b>Pilovi</b>: vs očekivano = ocena dana; juče / pre 7 d = posete do sada prema istom dobu tog dana (sirovo; <b>⚠ bot</b> = taj dan je nosio bota, Posete tog dana su naduvane — čisto poređenje daju Referisane u tabu Dan). <b>Čipovi</b> = projekcija izvora prema njegovom očekivanom; dodir otvara detalje. Traka = koliki je deo projekcije već stigao.</p>`,
   'Online sada': `<p><b>Veliki broj = online iz izvora</b>: posetioci koji su u poslednjih 60 min došli preko pretraživača ili partnera i još su aktivni (bez direktnih, internih i botova). Taj broj se iz dana u dan ponavlja u okviru ±5 %, pa <b>pil prema uobičajenom</b> (medijana poslednjih 7 čistih dana u istom minutu; pun pil preko 15 %) stvarno znači nešto. Isti broj i pil stoje u zaglavlju; isti račun kao na računaru.</p>
 <p><b>Ukupno sa nepovezanima</b> (sitno) = klonov online: uz posetioce iz izvora broji i bazen sesija bez referera (posetioci svih izvora koje izvor nije povezao sa ulaskom + crawleri). Bazen se koleba ±25 % iz dana u dan bez veze sa posetama, zato ukupno nema pil. <b>Po izvoru</b> = iz istog reda, tačno; red ispod = podela ukupnog (iz izvora + direktno koliko ih je stvarno došlo + nepovezani + botovi). Grafik = iz izvora po minutu u poslednja 2 h, isprekidano = uobičajeno. Čisti dani = bez bota i ispada; telefon ih ima iz izvora do 15 dana unazad, pa norma raste svakim danom.</p>
 <p><b>Direktno + nepovezani</b>: online bez referera je oko 12× veći od dolazaka direktnih u 60 min, dok je za Google, Bing, Trade… online ≈ dolasci u 60 min. Taj bazen stoji ceo dan (oko polovine onlajna, a direktni su 16–20 % poseta) = posetioci svih izvora koje izvor nije povezao sa ulaskom + trajni crawleri, ne pravi direktni. Red ispod: <b>iz izvora</b> = referisani online + direktni koliko ih je stvarno došlo u 60 min; <b>nepovezani</b> = ostatak direktnih + interno; botovi posebno (procena, ≈; isti račun kao na računaru).</p>
 <p><b>„Puni se do HH:MM"</b> (sivo, umesto pila): Tocijev izvor je restartovan — broj online i online po izvoru kreću od nule i pune prozor od 60 min, dok se dolasci broje normalno (pad saobraćaja pokazuju dolasci i alarmi, ne online). Do punog prozora broj nije uporediv sa uobičajenim; isti račun na računaru.</p>`,
   'Online danas': `<p><b>Zeleno = online iz izvora</b> (posetioci iz pretraživača i od partnera aktivni u 60 min) po 10 minuta danas, isprekidano = <b>uobičajeno</b> u isto doba (medijana poslednjih 7 čistih dana; bez bot dana i ispada; izvor čuva redove 30 dana, telefon drži 15). Tanko sivo = ukupno sa nepovezanima (bazen koji se koleba ±25 % iz dana u dan, zato bez pila). Zamena za histats naviku „u ovo doba ima toliko online": zelena linija uz isprekidanu = običan dan. Isti račun i brojevi kao na računaru (Tok dana → online).</p>`,
-  'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs očekivano</b> = projekcija izvora do kraja dana prema njegovom očekivanom (medijana 7 dana × dan u nedelji) — isti račun i pragovi kao glavna tabela na računaru i čipovi uz ocenu dana; pun pil = iznad praga tog izvora; ⚠ kod Direktnog = ima sumnjivih direktnih; red ukupno = ocena dana. Poređenje sa jučerašnjim danom po izvoru je u tabu Dan. Dodir na red = detalji izvora.</p>`,
+  'Izvori': `<p><b>do sada</b> = posete po izvoru (zbir po refereru; Organic i Partneri svedeni na klonovu skalu — sidro na klonovoj satnoj krivoj svakih 10 min, pa su brojevi isti kao na računaru). <b>5 min / 30 min</b> = dolasci u tom prozoru. <b>vs očekivano</b> = projekcija izvora do kraja dana prema njegovom očekivanom (trend 14 dana × dan u nedelji) — isti račun i pragovi kao glavna tabela na računaru i čipovi uz ocenu dana; pun pil = iznad praga tog izvora; ⚠ kod Direktnog = ima sumnjivih direktnih; red ukupno = ocena dana. Poređenje sa jučerašnjim danom po izvoru je u tabu Dan. Dodir na red = detalji izvora.</p>`,
   'Dolasci po 10 min': `<p>Novi posetioci po 10-minutnom prozoru u poslednja 2 h: organic (pretraživači), partneri (trade + sopstvene grupe), direktno (bez referera; od 20.9 pretežno skrejper).</p>`,
   'Referenti': `<p>Pojedinačni refereri: dolasci u poslednjih 30 min (prva kolona) i ukupno danas. Bez direktnih i botova.</p>`,
   'Poređenje dana': `<p>Danas prema juče / pre 7 / pre 14 dana. <b>isto doba</b> = do sada prema istom minutu tog dana; <b>ceo dan</b> = projekcija prema celom tom danu. Zeleno = danas više, crveno = manje; pun pil = razlika preko 7 % (Bing, DDG, Yahoo, Direktno 15 %). Sitno ispod broja = projekcija kraja dana.</p>
